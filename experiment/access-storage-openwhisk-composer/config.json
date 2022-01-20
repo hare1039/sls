@@ -1,0 +1,41 @@
+{
+    "action": "composer-dev-demo",
+    "tests": [
+        {
+            "testid": "etcd-ppp",
+            "payload": {
+                "action1":  "put",
+                "storage1": "etcd",
+                "action2":  "put",
+                "storage2": "etcd",
+                "action3":  "put",
+                "storage3": "etcd",
+                "value":    "k10"
+            }
+        },
+        {
+            "testid": "hdfs-ppp",
+            "payload": {
+                "action1":  "put",
+                "storage1": "hdfs",
+                "action2":  "put",
+                "storage2": "hdfs",
+                "action3":  "put",
+                "storage3": "hdfs",
+                "value":    "k10"
+            }
+        },
+        {
+            "testid": "cassandra-ppp",
+            "payload": {
+                "action1":  "put",
+                "storage1": "cassandra",
+                "action2":  "put",
+                "storage2": "cassandra",
+                "action3":  "put",
+                "storage3": "cassandra",
+                "value":    "k10"
+            }
+        }
+    ]
+}

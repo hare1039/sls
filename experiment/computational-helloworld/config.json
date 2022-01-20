@@ -1,0 +1,10 @@
+{
+    "action": "direct-dev-hello",
+    "tests": [
+        {
+            "testid": "hello",
+            "payload": {
+            }
+        }
+    ]
+}

@@ -1,0 +1,116 @@
+* Experiment: Invoker record
+This Experiment records the details of the invoker by parsing the log files
+
+#+BEGIN_SRC shell
+
+cd experiment;
+# Change experiment.sh >> computational-helloworld only
+./experiment.sh
+
+cd ../system-perf/openwhisk;
+cat result-*
+
+#+END_SRC
+
+#+BEGIN_SRC txt
+
+0 25168184.18059941
+1 24893179.791501354
+2 251736.98028817712
+3 119967.47524930279
+4 7457.554381813572
+5 88985.90456773431
+6 71610.81835755937
+7 100914.33876658497
+8 10116.334636186935
+9 46142.66451871884
+10 24305332.00469654
+11 19232158.06046649
+12 70625.1791954533
+13 19060881.929445196
+14 18995276.19723443
+15 112937.29384982676
+
+0 12096773.792529367
+1 1304059.6816741317
+2 192753.94524730093
+3 43702224.65643693
+4 2489266.800261979
+5 859012.4618968139
+6 1926648.8656617089
+7 987531.5526704978
+8 14453.027835291135
+9 4918.246661877799
+
+#+END_SRC
+
+* Experiment: kafka performance
+Records the throughput and the latency in result.txt
+
+#+BEGIN_SRC shell
+
+# git clone https://github.com/apache/kafka
+# ./gradlew jar -PscalaVersion=2.13.6
+cd system-perf/kafka;
+
+# check the kafka container ip address and change the 172.17.0.5 in run.sh
+./run.sh
+
+#+END_SRC
+
+
+#+BEGIN_SRC txt
+185809 records sent, 37161.8 records/sec (36.29 MB/sec), 110.9 ms avg latency, 494.0 ms max latency.
+238877 records sent, 47775.4 records/sec (46.66 MB/sec), 2.0 ms avg latency, 11.0 ms max latency.
+235834 records sent, 47166.8 records/sec (46.06 MB/sec), 2.8 ms avg latency, 37.0 ms max latency.
+239693 records sent, 47938.6 records/sec (46.82 MB/sec), 2.1 ms avg latency, 15.0 ms max latency.
+241873 records sent, 48374.6 records/sec (47.24 MB/sec), 3.8 ms avg latency, 53.0 ms max latency.
+247051 records sent, 49410.2 records/sec (48.25 MB/sec), 1.8 ms avg latency, 11.0 ms max latency.
+244451 records sent, 48890.2 records/sec (47.74 MB/sec), 2.0 ms avg latency, 16.0 ms max latency.
+240887 records sent, 48177.4 records/sec (47.05 MB/sec), 2.6 ms avg latency, 40.0 ms max latency.
+251529 records sent, 50305.8 records/sec (49.13 MB/sec), 1.7 ms avg latency, 8.0 ms max latency.
+248966 records sent, 49793.2 records/sec (48.63 MB/sec), 2.1 ms avg latency, 32.0 ms max latency.
+244743 records sent, 48948.6 records/sec (47.80 MB/sec), 2.1 ms avg latency, 19.0 ms max latency.
+243523 records sent, 48704.6 records/sec (47.56 MB/sec), 3.3 ms avg latency, 50.0 ms max latency.
+3000000 records sent, 47750.931143 records/sec (46.63 MB/sec), 9.08 ms avg latency, 494.00 ms max latency, 2 ms 50th, 38 ms 95th, 186 ms 99th, 228 ms 99.9th.
+194988 records sent, 38997.6 records/sec (38.08 MB/sec), 37.5 ms avg latency, 518.0 ms max latency.
+236440 records sent, 47288.0 records/sec (46.18 MB/sec), 2.8 ms avg latency, 40.0 ms max latency.
+228337 records sent, 45667.4 records/sec (44.60 MB/sec), 2.2 ms avg latency, 11.0 ms max latency.
+230584 records sent, 46116.8 records/sec (45.04 MB/sec), 4.6 ms avg latency, 51.0 ms max latency.
+237233 records sent, 47446.6 records/sec (46.33 MB/sec), 2.1 ms avg latency, 16.0 ms max latency.
+234200 records sent, 46840.0 records/sec (45.74 MB/sec), 3.5 ms avg latency, 61.0 ms max latency.
+233565 records sent, 46713.0 records/sec (45.62 MB/sec), 2.1 ms avg latency, 16.0 ms max latency.
+228890 records sent, 45778.0 records/sec (44.71 MB/sec), 4.3 ms avg latency, 55.0 ms max latency.
+236185 records sent, 47237.0 records/sec (46.13 MB/sec), 2.0 ms avg latency, 10.0 ms max latency.
+242517 records sent, 48503.4 records/sec (47.37 MB/sec), 2.2 ms avg latency, 30.0 ms max latency.
+241803 records sent, 48360.6 records/sec (47.23 MB/sec), 1.8 ms avg latency, 12.0 ms max latency.
+235811 records sent, 47162.2 records/sec (46.06 MB/sec), 2.0 ms avg latency, 10.0 ms max latency.
+3000000 records sent, 46279.869799 records/sec (45.20 MB/sec), 10.94 ms avg latency, 518.00 ms max latency, 2 ms 50th, 86 ms 95th, 139 ms 99th, 161 ms 99.9th.
+
+config:
+invoker0    PartitionCount: 1   ReplicationFactor: 1    Configs: segment.bytes=536870912,retention.ms=300000,max.message.bytes=1054644,retention.bytes=104857600
+
+#+END_SRC
+
+* Experiment: openwhisk performance parse for function composition
+
+Run tests on computational-helloworld computational-direct computational-openwhisk-composer.
+
+
+#+BEGIN_SRC shell
+
+cd experiment;
+# Change experiment.sh
+#   >> computational-helloworld computational-direct computational-openwhisk-composer
+#   >> "./record.sh $exp 4            3" four clients and repeat 3 times
+./experiment.sh
+
+cd ../system-perf/openwhisk;
+cat result-*
+
+#+END_SRC
+
+
+#+BEGIN_SRC txt
+
+#+END_SRC

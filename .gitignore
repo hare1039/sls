@@ -1,0 +1,7 @@
+**/*node_modules
+*.zip
+*.7z
+*.txt
+*.log
+**/record.sh_*-logs
+/experiment/workspace
