@@ -36,7 +36,7 @@ async function get_etcd3(key) {
 }
 
 function put_hdfs(filename, value) {
-    let res1 = request("PUT", "http://192.168.2.24:9870/webhdfs/v1" + filename + "?op=CREATE", {
+    let res1 = request("PUT", "http://192.168.2.24:9870/webhdfs/v1" + filename + "?op=CREATE&overwrite=true", {
         followRedirects: false
     });
 

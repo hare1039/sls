@@ -54,9 +54,9 @@ for i in {0..10000}; do
     echo "Running test $testid";
     jq --monochrome-output --compact-output ".tests[$i].payload" config.json | tr --delete '\n' > payload.json;
 
-    cat ${root_dir}/templates/luabody-prefix.txt \
+    cat ${root_dir}/templates/luabody-prefix.tpl \
         payload.json \
-        ${root_dir}/templates/luabody-suffix.txt \
+        ${root_dir}/templates/luabody-suffix.tpl \
         ${root_dir}/templates/works.lua > works.lua;
 
     action=$(jq --raw-output ".action" config.json);

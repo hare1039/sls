@@ -334,4 +334,7 @@ with open(sys.argv[1]) as fp:
                 except Exception as e:
                     continue
 
-        print(arr[0][0], statistics.mean([y[1] for y in arr]))
+        try:
+            print(arr[0][0], statistics.mean([y[1] for y in arr]))
+        except Exception as e:
+            continue
