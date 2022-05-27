@@ -1,0 +1,27 @@
+{
+    "action": "cpp",
+    "inits": [
+        {
+            "testid": "format",
+            "payload": {
+                "operation": "format"
+            }
+        },
+        {
+            "testid": "create-file",
+            "payload": {
+                "operation": "write",
+                "filename": "/aaaa.txt"
+            }
+        }
+    ],
+    "tests": [
+        {
+            "testid": "read-file",
+            "payload": {
+                "operation": "read",
+                "filename": "/aaaa.txt"
+            }
+        }
+    ]
+}

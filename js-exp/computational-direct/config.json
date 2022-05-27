@@ -1,0 +1,11 @@
+{
+    "action": "direct-dev-hello",
+    "tests": [
+        {
+            "testid": "doubletimes",
+            "payload": {
+                "value":  10
+            }
+        }
+    ]
+}

@@ -1,0 +1,48 @@
+{
+    "action": "cpp",
+    "inits": [
+        {
+            "testid": "format",
+            "payload": {
+                "operation": "format"
+            }
+        }
+    ],
+    "tests": [
+        {
+            "testid": "create-mkdir-1",
+            "payload": {
+                "operation": "mkdir",
+                "filename": "/dirfirst"
+            }
+        },
+        {
+            "testid": "create-mkdir-2",
+            "payload": {
+                "operation": "mkdir",
+                "filename": "/dirfirst/dirsecon"
+            }
+        },
+        {
+            "testid": "create-mkdir-3",
+            "payload": {
+                "operation": "mkdir",
+                "filename": "/dirfirst/dirsecon/dirthird"
+            }
+        },
+        {
+            "testid": "create-mkdir-4",
+            "payload": {
+                "operation": "mkdir",
+                "filename": "/dirfirst/dirsecon/dirthird/dirforth"
+            }
+        },
+        {
+            "testid": "create-file",
+            "payload": {
+                "operation": "touch",
+                "filename": "/dirfirst/dirsecon/dirthird/dirforth/file.txt"
+            }
+        }
+    ]
+}

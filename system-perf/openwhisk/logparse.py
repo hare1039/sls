@@ -5,6 +5,9 @@ import datetime
 
 def difftime(x, y):
     try:
+        v = x.nanotime - y.nanotime
+        if v <= 0:
+            return None
         return x.nanotime - y.nanotime
     except Exception as e:
         return None
@@ -95,19 +98,30 @@ class request:
     def diffarray_controller(self):
         return [
             ("BasicHttpService", 1000000000 * (self.finish.timestamp.timestamp() - self.post.timestamp.timestamp())),
+            ("controllerRouteOverhead", 1000000000 * (self.controllerRoute.timestamp.timestamp() - self.post.timestamp.timestamp())),
             ("controllerRoute", 1000000000 * (self.finish.timestamp.timestamp() - self.controllerRoute.timestamp.timestamp())),
+
             ("apiV1.routes()", difftime(self.innerRoutes, self.ApiRoute)),
+            ("authOverhead", difftime(self.Auth, self.ApiRoute)),
             ("auth()", difftime(self.IdentityCacheDone, self.Auth)),
+            ("authorizeAndDispatch()", difftime(self.AuthStart, self.Auth)),
             ("BasicAuthenticationDirective", difftime(self.AuthDone, self.AuthStart)),
+            ("AuthDone->IdentityCacheLookup", difftime(self.IdentityCacheLookup, self.AuthDone)),
             ("IdentityCache", difftime(self.IdentityCacheDone, self.IdentityCacheLookup)),
-            ("checkAuthentication", difftime(self.innerRoutes, self.checkAuthentication)),
-            ("checkPrivilege", difftime(self.checkPrivilege, self.checkAuthentication)),
+            ("checkAuthentication", difftime(self.innerRoutes, self.IdentityCacheDone)),
+            ("innerRoutes()", 1000000000 * (self.finish.timestamp.timestamp() - self.innerRoutes.timestamp.timestamp())),
+
+            ("checkPrivilege", difftime(self.checkPrivilege, self.innerRoutes)),
             ("checkRateThrottler", difftime(self.RateThrottler, self.checkPrivilege)),
             ("checkActivationThrottler", difftime(self.LocalEntitlementProviderAuthorized, self.RateThrottler)),
-            ("innerRoutes()", 1000000000 * (self.finish.timestamp.timestamp() - self.innerRoutes.timestamp.timestamp())),
+
+            ("Controller.route()", difftime(self.activate, self.LocalEntitlementProviderAuthorized)),
             ("activate()", difftime(self.doinvokeOncomplete, self.activate)),
-            ("cachelookup", difftime(self.WhiskActionMetaDataCacheDone, self.WhiskActionMetaDataCacheLookup)),
+            ("cachelookup", difftime(self.WhiskActionMetaDataCacheDone, self.doinvokeOncomplete)),
+
+            ("PreparePreload", difftime(self.ActionsApiDoInvoke, self.WhiskActionMetaDataCacheDone)),
             ("DoInvoke", difftime(self.doinvokeOncomplete, self.ActionsApiDoInvoke)),
+            ("invokeSingleAction->doinvokeOncomplete", difftime(self.invokeSingleAction, self.doinvokeOncomplete)),
             ("InvokeSingleAction", difftime(self.invokeSingleActionDone, self.invokeSingleAction)),
             ("postmessage()", difftime(self.invokeSingleActionPostDone, self.invokeSingleActionPost)),
         ]
@@ -271,6 +285,8 @@ class request:
 
 mode = sys.argv[2]
 
+notOKtid = re.compile("^tid_[0-9A-Za-z]+")
+
 with open(sys.argv[1]) as fp:
     lines = fp.readlines()
 
@@ -278,6 +294,9 @@ with open(sys.argv[1]) as fp:
     for line in lines:
         try:
             l = log(line.split())
+            if notOKtid.match(l.tid):
+                continue
+
             if l.tid not in datalist:
                 datalist[l.tid] = request()
 

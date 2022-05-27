@@ -1,0 +1,11 @@
+{
+    "action": "composer-dev-demo",
+    "tests": [
+        {
+            "testid": "doubletimes",
+            "payload": {
+                "value": 10
+            }
+        }
+    ]
+}
