@@ -10,6 +10,7 @@ RUN apk update && \
                                  libc-dev \
                                  cassandra-cpp-driver-dev \
                                  curl-dev \
+                                 boost-dev \
                                  make
 
 RUN apk add crypto++-dev --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
@@ -22,9 +23,10 @@ ADD libslsfs /action/libslsfs
 
 ADD datafunction /action/
 
-RUN cd /action && g++ -O3 -std=c++17 -o exec *.cpp \
+RUN cd /action && time g++ -O3 -std=c++17 -o exec *.cpp \
     -I/action/libslsfs/ -I/action/libslsfs/slsfs -DFMT_HEADER_ONLY \
-    -L/usr/local/lib/ \
-    -lcryptopp -lcassandra -lrdkafka++ -lrdkafka -lcurl
+    -L/usr/local/lib/ -pthread \
+    -lcryptopp -lcassandra -lrdkafka++ -lrdkafka -lcurl \
+    -lboost_coroutine -lboost_chrono -lboost_thread -lboost_system
 
 CMD ["/bin/bash", "-c", "cd actionProxy && python -u actionproxy.py"]

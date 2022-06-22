@@ -32,7 +32,7 @@ auto perform_single_request(
         slsfs::base::buf const write_buf = slsfs::base::to_buf(data);
         single_response["response"] = "ok";
 
-        std::string const uuid = "/"s + slsfs::uuid::get_uuid(filename);
+        std::string const uuid = "/"s + slsfs::uuid::get_uuid_str(filename);
         slsfs::log::logstring("_meta_ perform_single_request datastorage.append");
         datastorage.append_list_key(uuid, write_buf);
         break;
@@ -44,7 +44,7 @@ auto perform_single_request(
         slsfs::log::logstring("_meta_ perform_single_request datastorage.merge");
 
         datastorage.merge_list_key(
-            "/"s + slsfs::uuid::get_uuid(filename),
+            "/"s + slsfs::uuid::get_uuid_str(filename),
             [&outbuf, &single_response] (std::vector<slsfs::base::buf> const & buf) {
                 std::set<std::string> files;
 
@@ -70,7 +70,7 @@ auto perform_single_request(
     case "read"_:
     {
         slsfs::log::logstring("_meta_ perform_single_request datastorage.read");
-        slsfs::base::buf const data = datastorage.read_key("/"s + slsfs::uuid::get_uuid(filename));
+        slsfs::base::buf const data = datastorage.read_key("/"s + slsfs::uuid::get_uuid_str(filename));
         std::string const datastr = slsfs::base::to_string(data);
 
         single_response["response"] = "ok";
@@ -78,11 +78,28 @@ auto perform_single_request(
 
         break;
     }
+
+    case "create"_:
+    {
+        slsfs::log::logstring("_meta_ perform_single_request create");
+        slsfs::create(filename.c_str());
+
+        single_response["response"] = "ok";
+        break;
     }
 
-    slsfs::log::logstring("_meta_ perform_single_request send_kafka");
-    std::cerr << "mdf send " << input["returnchannel"] << " with value " << single_response << "\n";
-    slsfs::send_kafka(input["returnchannel"], single_response);
+    }
+
+    if (input.contains("returnchannel"))
+    {
+        slsfs::log::logstring("_meta_ perform_single_request send_kafka");
+        std::cerr << "mdf send " << input["returnchannel"] << " with value " << single_response << "\n";
+
+        auto cont = slsfs::base::decode(input["returnchannel"]);
+        slsfs::pack::key_t key;
+        std::copy(cont.begin(), cont.end(), key.begin());
+        slsfs::send_kafka(key, single_response);
+    }
 
     slsfs::log::logstring("_meta_ perform_single_request end");
     return single_response;

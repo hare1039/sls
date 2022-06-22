@@ -6,10 +6,15 @@
 
 //#include <boost/functional/hash.hpp>
 
+#include <ios>
+#include <iostream>
+#include <vector>
+#include <memory>
+#include <cstring>
 #include <array>
 #include <tuple>
 
-namespace pack
+namespace slsfs::pack
 {
 
 namespace
@@ -32,7 +37,7 @@ void hash_range(std::size_t& seed, It first, It last)
 
 
 using unit_t = std::uint8_t;
-using key_t = std::array<unit_t, 256 / 8 / sizeof(unit_t)>;
+using key_t = std::array<unit_t, 320 / 8 / sizeof(unit_t)>;
 enum class msg_t: unit_t
 {
     error,
@@ -165,8 +170,6 @@ struct packet
     {
         header.datasize = data.buf.size();
         auto r = std::make_shared<std::vector<unit_t>>(packet_header::bytesize + header.datasize);
-
-        BOOST_LOG_TRIVIAL(trace) << "updated header size: " << header.datasize;
 
         unit_t* pos = header.dump(r->data());
         data.dump(pos);

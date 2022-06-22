@@ -15,6 +15,7 @@ auto perform(slsfs::base::storage_interface &datastorage, slsfs::base::json cons
     -> slsfs::base::json
 {
     slsfs::log::logstring("perform start");
+    SCOPE_DEFER([]{ slsfs::log::logstring("perform end"); });
     auto const datatype = single_input["type"].get<std::string>();
 
     switch (slsfs::sswitch::hash(datatype))
@@ -33,7 +34,6 @@ auto perform(slsfs::base::storage_interface &datastorage, slsfs::base::json cons
         break;
     }
     }
-    slsfs::log::logstring("perform end");
     return {};
 }
 
@@ -51,7 +51,6 @@ int main(int argc, char *argv[])
     slsfs::log::logstring("parsed json");
 
     json output;
-    SCOPE_DEFER([&output]{ std::cout << output.dump() << "\n"; });
     output["original-request"] = input;
     output["response"] = json::array();
 
@@ -79,7 +78,8 @@ int main(int argc, char *argv[])
         output["exception thrown"] = e.what();
         std::cerr << "exception thrown" << e.what() << "\n";
     }
-    std::cout << output.dump() << "\n";
 
-    return 0;
+    std::cout << output.dump() << "\n";
+    std::exit(0);
+    //return 0;
 }

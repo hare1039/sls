@@ -23,7 +23,8 @@ auto decode(std::string const& v) -> buf
     return base64::decode(v);
 }
 
-auto encode(buf const& v) -> std::string
+template<typename Container>
+auto encode(Container const& v) -> std::string
 {
     using base64 = cppcodec::base64_url;
     return base64::encode(v);
