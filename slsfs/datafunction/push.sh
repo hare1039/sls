@@ -10,17 +10,17 @@ wsk -i action create slsfs-datafunction --docker hare1039/slsfs-datafunction:$ta
 echo "start create /"
 wsk -i action invoke --blocking slsfs-datafunction --param operation create --param filename / --param type metadata
 
-echo "start create /hello.txt"
-wsk -i action invoke --blocking slsfs-datafunction --param operation create --param filename /hello.txt --param type metadata
+echo "start create /helloworld.txt"
+wsk -i action invoke --blocking slsfs-datafunction --param operation create --param filename /helloworld.txt --param type metadata
 
-echo "start write  /hello.txt"
-wsk -i action invoke --blocking slsfs-datafunction --param operation write --param filename /hello.txt --param data paripikoumei --param type file
+echo "start write  /helloworld.txt"
+wsk -i action invoke --blocking slsfs-datafunction --param operation write --param filename /helloworld.txt --param data master --param type file
 
-echo "start read   /hello.txt"
-wsk -i action invoke --blocking slsfs-datafunction --param operation read --param filename /hello.txt --param type file
-
-echo "start ls /"
-wsk -i action invoke --blocking slsfs-datafunction --param operation ls --param filename / --param type metadata
+#echo "start read   /helloworld.txt"
+#wsk -i action invoke --blocking slsfs-datafunction --param operation read --param filename /helloworld.txt --param type file
+#
+#echo "start ls /"
+#wsk -i action invoke --blocking slsfs-datafunction --param operation ls --param filename / --param type metadata
 
 #wsk -i action invoke --blocking slsfs-datafunction \
 #    --param type metadata \
