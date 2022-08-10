@@ -9,7 +9,7 @@ using lli = long long int;
 
 constexpr inline
 lli hash(char const * str, int h = 0) {
-    return (!str[h] ? 5381 : (hash(str, h+1)*33) ^ str[h] );
+    return (!str[h] ? 5381 : (hash(str, h+1)*33) ^ str[h] ) % (2147483647);
 }
 
 constexpr inline

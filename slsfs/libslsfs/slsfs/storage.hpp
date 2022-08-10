@@ -5,7 +5,7 @@
 
 #include "basetypes.hpp"
 
-namespace slsfs::base
+namespace slsfs::storage
 {
 
 struct state
@@ -15,28 +15,28 @@ struct state
     int max_size;
 };
 
-class storage_interface
+class interface
 {
 protected:
     state state_;
 public:
-    virtual ~storage_interface() {}
-    virtual void connect() = 0;
+    virtual ~interface() {}
+    virtual void connect() {};
 
     // block interface [int] -> buf
-    virtual buf  read_block(std::uint32_t const offset) = 0;
-    virtual void write_block(std::uint32_t const offset, buf const& buffer) = 0;
+    virtual auto read_block(std::uint32_t const offset) -> base::buf { return {}; };
+    virtual void write_block(std::uint32_t const offset, base::buf const& buffer) {};
 
     // key interface   [str] -> buf
-    virtual buf  read_key(std::string const name) = 0;
-    virtual void write_key(std::string const name, buf const& buffer) = 0;
+    virtual auto read_key(std::string const name) -> base::buf { return {}; };
+    virtual void write_key(std::string const name, base::buf const& buffer) {};
 
     // list interface  [str] -> buf
-    virtual void append_list_key(std::string const name, buf const& buffer) = 0;
-    virtual void merge_list_key(std::string const name, std::function<void(std::vector<buf> const&)> reduce) = 0;
-    virtual buf  get_list_key(std::string const name) = 0;
+    virtual void append_list_key(std::string const name, base::buf const& buffer) {};
+    virtual void merge_list_key(std::string const name, std::function<void(std::vector<base::buf> const&)> reduce) {};
+    virtual auto get_list_key(std::string const name) -> base::buf { return {}; };
 
-    virtual void create_volume(std::uint32_t const size, std::string const& name) = 0;
+    virtual void create_volume(std::uint32_t const size, std::string const& name) {};
     auto current_state() -> state& { return state_; }
 };
 

@@ -1,10 +1,9 @@
 {
-    "action": "composer-dev-demo",
+    "action": "direct-dev-hello",
     "tests": [
         {
-            "testid": "doubletimes",
+            "testid": "hello",
             "payload": {
-                "value": 10
             }
         }
     ]

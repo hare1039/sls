@@ -27,7 +27,7 @@ init_once()
     inited="true";
 }
 
-for i in {0..10000}; do
+for i in {0..50}; do
     testid=$(jq --raw-output ".tests[$i].testid" config.json);
     output=${root_dir}/output/result_${folder}_${testid}_${connection}.txt;
     processed=${root_dir}/processed/result_${folder}_${testid}_${connection}.txt;

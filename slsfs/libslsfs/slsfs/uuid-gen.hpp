@@ -49,10 +49,16 @@ auto get_uuid(std::string const & filename) -> pack::key_t
     pack::key_t digest{};
     CryptoPP::SHA256 hash;
 
-    static_assert(CryptoPP::SHA256::DIGESTSIZE < std::tuple_size<pack::key_t>::value);
+    static_assert(CryptoPP::SHA256::DIGESTSIZE == std::tuple_size<pack::key_t>::value);
 
-    std::vector<pack::unit_t> id(filename.begin(), filename.end());
-    hash.CalculateDigest(digest.data(), id.data(), id.size());
+    // enable to use reinterpret_cast<const char*>(const byte *) or the other round
+    // please see https://stackoverflow.com/a/16261758/5921729
+    static_assert(std::is_same_v<std::uint8_t, char> ||
+                  std::is_same_v<std::uint8_t, unsigned char>,
+                  "Make sure std::uint8_t is implemented as char or unsigned char.");
+
+    hash.CalculateDigest(digest.data(), reinterpret_cast<const pack::unit_t *>(filename.data()), filename.size());
+    //hash.CalculateDigest(digest.data(), id.data(), id.size());
     return digest;
 }
 
@@ -67,6 +73,13 @@ auto gen_rand(std::size_t length) -> std::vector<pack::unit_t>
     return id;
 }
 
+int gen_rand_number()
+{
+    static thread_local std::mt19937 rng(std::random_device{}());
+    static thread_local std::uniform_int_distribution<int> dist(0, 9999);
+
+    return dist(rng);
+}
 
 
 } // namespace uuid

@@ -1,0 +1,22 @@
+412
+BasicHttpService 146732189.73145732
+controllerRouteOverhead 2820635.8963500075
+controllerRoute 143911553.8351073
+apiV1.routes() 2945961.0982800983
+authOverhead 564237.085995086
+auth() 919879.5503685503
+authorizeAndDispatch() 338082.0417690418
+BasicAuthenticationDirective 119586.71744471745
+AuthDone->IdentityCacheLookup 45299.471744471746
+IdentityCache 416911.3194103194
+checkAuthentication 1461844.4619164618
+innerRoutes() 140872237.72334817
+checkPrivilege 353045.0221130221
+checkRateThrottler 121018.85257985258
+checkActivationThrottler 1000965.3341523341
+Controller.route() 161887.4004914005
+activate() 138326579.4127764
+PreparePreload 437974.84197530866
+DoInvoke 135927633.8845209
+InvokeSingleAction 135555976.15233415
+postmessage() 1266629.2628992628

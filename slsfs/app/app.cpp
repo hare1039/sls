@@ -26,32 +26,26 @@ int main(int argc, char *argv[])
     auto const data = input["data"].get<std::string>();
     using namespace std::chrono_literals;
 
-
-    slsfs::log::logstring<slsfs::log::level::info>("create /");
-    slsfs::create("/");
-    slsfs::log::logstring<slsfs::log::level::info>("create /r/");
-    slsfs::create("/restaurant/");
-    slsfs::log::logstring<slsfs::log::level::info>("create /r/g");
-    slsfs::create("/restaurant/burgerking.txt");
-    slsfs::log::logstring<slsfs::log::level::info>("write /r/b");
-    slsfs::write("/restaurant/burgerking.txt", data.data(), data.size(), 0, nullptr);
-
+    for (int i = 0; i < 100; i++)
     {
-        std::array<char, 512> readbuf;
-        slsfs::log::logstring<slsfs::log::level::info>("read /r/b");
-        std::size_t readsize = slsfs::read("/restaurant/burgerking.txt", readbuf.data(), readbuf.size(), 0, nullptr);
-        std::string readfile;
-        std::copy_n(readbuf.begin(), readsize, std::back_inserter(readfile));
-        output["read"] = readfile;
-    }
+        std::string const target = "/restaurant/burgerking-" + std::to_string(i) + ".txt";
+        char const* path = target.c_str();
+        slsfs::log::logstring<slsfs::log::level::info>("write /r/b");
+        slsfs::write(path, data.data(), data.size(), 0, nullptr);
+        slsfs::log::logstring<slsfs::log::level::info>("write /r/b");
 
-//    {
-//        std::array<char, 512> readbuf;
-//        std::size_t readsize = slsfs::read("/hello.txt", readbuf.data(), readbuf.size(), 0, nullptr);
-//        std::string readfile;
-//        std::copy_n(readbuf.begin(), readsize, std::back_inserter(readfile));
-//        output["readhello"] = readfile;
-//    }
+        {
+            std::array<char, 512> readbuf;
+
+            slsfs::log::logstring<slsfs::log::level::info>("read /r/b");
+            std::size_t readsize = slsfs::read(path, readbuf.data(), readbuf.size(), 0, nullptr);
+            slsfs::log::logstring<slsfs::log::level::info>("read /r/b finish");
+
+            std::string readfile;
+            std::copy_n(readbuf.begin(), readsize, std::back_inserter(readfile));
+            output["read"] = readfile;
+        }
+    }
 
     return 0;
 }

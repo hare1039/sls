@@ -13,27 +13,28 @@
 namespace slsfs::storage
 {
 
-class cassandra : public base::storage_interface
+class cassandra : public interface
 {
     CassCluster* cluster_ = nullptr;
     CassSession* session_ = nullptr;
-    CassFuture* connect_future_ = nullptr;
+    CassFuture*  connect_future_ = nullptr;
 public:
     cassandra(char const * hosts)
     {
-        state_.optimal_size = 1024;
+        state_.optimal_size = 1024 * 4;
         state_.priority = 0;
 
         cluster_ = cass_cluster_new();
         session_ = cass_session_new();
         cass_cluster_set_contact_points(cluster_, hosts);
+        cass_cluster_set_protocol_version(cluster_, CASS_PROTOCOL_VERSION_V4);
     }
 
     ~cassandra()
     {
         cass_future_free(connect_future_);
-
         CassFuture* close_future = cass_session_close(session_);
+
         cass_future_wait(close_future);
         cass_future_free(close_future);
 

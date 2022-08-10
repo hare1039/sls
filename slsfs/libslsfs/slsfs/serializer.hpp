@@ -13,6 +13,8 @@
 #include <cstring>
 #include <array>
 #include <tuple>
+#include <algorithm>
+#include <random>
 
 namespace slsfs::pack
 {
@@ -37,14 +39,15 @@ void hash_range(std::size_t& seed, It first, It last)
 
 
 using unit_t = std::uint8_t;
-using key_t = std::array<unit_t, 320 / 8 / sizeof(unit_t)>;
+
+// key = [32] byte main key // sha256 bit
+using key_t = std::array<unit_t, 256 / 8 / sizeof(unit_t)>;
 enum class msg_t: unit_t
 {
-    error,
-    put,
-    get,
-    response,
-    call_register,
+    err = 0,
+    put = 1,
+    get = 2,
+    ack = 4,
 };
 
 template<typename Integer>
@@ -83,9 +86,43 @@ auto ntoh(Integer i) -> Integer
 struct packet_header
 {
     msg_t type;
-    key_t buf;
-    std::uint32_t datasize;
-    static constexpr int bytesize = std::tuple_size<key_t>::value + sizeof(datasize) + sizeof(type);
+    key_t key;
+    std::uint32_t datasize; // not in byte form
+    std::array<unit_t, 4> sequence{};
+    std::array<unit_t, 4> random_salt{};
+
+    static constexpr int bytesize =
+        sizeof(datasize) + sizeof(type) +
+        std::tuple_size<decltype(key)>::value +
+        std::tuple_size<decltype(sequence)>::value +
+        std::tuple_size<decltype(random_salt)>::value;
+
+    auto static_rand_engine() -> std::mt19937&
+    {
+        static thread_local std::random_device rd;
+        static thread_local std::mt19937 gen(rd());
+        return gen;
+    }
+
+    void gen_random_salt()
+    {
+        std::uniform_int_distribution<unit_t> distrib(1, 0xFF);
+        std::mt19937& gen = static_rand_engine();
+        std::generate(random_salt.begin(), random_salt.end(), [&] { return distrib(gen); });
+    }
+
+    void gen_sequence()
+    {
+        std::uniform_int_distribution<unit_t> distrib(1, 0xFF);
+        std::mt19937& gen = static_rand_engine();
+        std::generate(sequence.begin(), sequence.end(), [&] { return distrib(gen); });
+    }
+
+    void gen()
+    {
+        gen_random_salt();
+        gen_sequence();
+    }
 
     void parse(unit_t *pos)
     {
@@ -94,8 +131,16 @@ struct packet_header
         pos += sizeof(type);
 
         // |key|
-        std::memcpy(buf.data(), pos, buf.size());
-        pos += buf.size();
+        std::memcpy(key.data(), pos, key.size());
+        pos += key.size();
+
+        // |sequence|
+        std::memcpy(sequence.data(), pos, sequence.size());
+        pos += sequence.size();
+
+        // |random_salt|
+        std::memcpy(random_salt.data(), pos, random_salt.size());
+        pos += random_salt.size();
 
         // |datasize|
         std::memcpy(std::addressof(datasize), pos, sizeof(datasize));
@@ -109,35 +154,56 @@ struct packet_header
         pos += sizeof(type);
 
         // |key|
-        std::memcpy(pos, buf.data(), buf.size());
-        pos += buf.size();
+        std::memcpy(pos, key.data(), key.size());
+        pos += key.size();
+
+        // |sequence|
+        std::memcpy(pos, sequence.data(), sequence.size());
+        pos += sequence.size();
+
+        // |random_salt|
+        std::memcpy(pos, random_salt.data(), random_salt.size());
+        pos += random_salt.size();
 
         // |datasize|
         decltype(datasize) datasize_copy = hton(datasize);
         std::memcpy(pos, std::addressof(datasize_copy), sizeof(datasize_copy));
         return pos + sizeof(datasize_copy);
     }
+
+    bool is_trigger() { return random_salt.back() == 0; } // if buf[-1] == 0 => is a trigger
 };
 
 struct packet_header_key_hash
 {
-    auto operator() (packet_header const& key) const -> std::size_t
+    auto operator() (packet_header const& k) const -> std::size_t
     {
         std::size_t seed = 0x1b873593;
-        hash_range(seed, key.buf.begin(), key.buf.end());
+        hash_range(seed, k.key.begin(), k.key.end());
+        hash_range(seed, k.random_salt.begin(), k.random_salt.end());
         return seed;
     }
 };
 
 struct packet_header_key_compare
 {
-    bool operator() (packet_header const& key1, packet_header const& key2) const { return ( key1.buf == key2.buf ); }
+    bool operator() (packet_header const& key1, packet_header const& key2) const
+    {
+        return (std::tie(key1.key, key1.random_salt) ==
+                std::tie(key2.key, key2.random_salt));
+    }
 };
 
 auto operator <<(std::ostream &os, packet_header const& pd) -> std::ostream&
 {
     os << "[t=" << static_cast<int>(pd.type) << "|k=";
-    for (key_t::value_type v: pd.buf)
+    for (key_t::value_type v: pd.key)
+        os << std::hex << static_cast<int>(v);
+    os << ",seq=";
+    for (key_t::value_type v: pd.sequence)
+        os << std::hex << static_cast<int>(v);
+    os << ",salt=";
+    for (key_t::value_type v: pd.random_salt)
         os << std::hex << static_cast<int>(v);
     os << "|d=" << pd.datasize << "]";
     return os;

@@ -10,7 +10,7 @@ namespace metadata
 {
 
 auto perform_single_request(
-    slsfs::base::storage_interface &datastorage,
+    slsfs::storage::interface &datastorage,
     slsfs::base::json const& input) -> slsfs::base::json
 {
     slsfs::log::logstring("_meta_ perform_single_request start");
@@ -95,10 +95,19 @@ auto perform_single_request(
         slsfs::log::logstring("_meta_ perform_single_request send_kafka");
         std::cerr << "mdf send " << input["returnchannel"] << " with value " << single_response << "\n";
 
-        auto cont = slsfs::base::decode(input["returnchannel"]);
-        slsfs::pack::key_t key;
-        std::copy(cont.begin(), cont.end(), key.begin());
-        slsfs::send_kafka(key, single_response);
+        slsfs::pack::packet_pointer request = std::make_shared<slsfs::pack::packet>();
+        request->header.type = slsfs::pack::msg_t::put;
+        request->header.key = slsfs::uuid::get_uuid(filename);
+        request->header.gen_sequence();
+
+        auto const vec = slsfs::base::decode(input["returnchannel"]);
+        assert(vec.size() == request->header.random_salt.size());
+        std::copy(vec.cbegin(), vec.cend(), request->header.random_salt.begin());
+
+        std::string v = single_response.dump();
+        request->data.buf = std::vector<slsfs::pack::unit_t>(v.begin(), v.end());
+
+        slsfs::send_kafka(request);
     }
 
     slsfs::log::logstring("_meta_ perform_single_request end");

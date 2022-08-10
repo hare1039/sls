@@ -1,0 +1,10 @@
+408
+totalInvokerTime 269994152.7567568
+invokerMsgCacheLookup 353028.4148148148
+containerStartTime 15591621.476
+invokerHttpTime 222259183.46928746
+CollectLog 5240400.248157248
+InvokerRecordingActivation 3493829.5945945946
+SavetoDB 2537802.2065491183
+postKafkaResult 78761.05714285714
+postKafkaComplete 47252.304761904765
