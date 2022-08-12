@@ -2,6 +2,9 @@
 #ifndef DATAFUNCTION_HPP__
 #define DATAFUNCTION_HPP__
 
+#include "storage-conf-cass.hpp"
+#include "storage-conf-ssbd.hpp"
+
 #include <slsfs.hpp>
 
 namespace datafunction
@@ -43,8 +46,9 @@ void send_metadata(std::string const & filename)
 }
 
 auto perform_single_request(
-    slsfs::storage::interface &datastorage,
-    slsfs::base::json const& input) -> slsfs::base::json
+    df::storage_conf &datastorage,
+    slsfs::base::json const& input,
+    std::uint32_t& version) -> slsfs::base::json
 {
     slsfs::log::logstring("_data_ perform_single_request start");
 
@@ -64,8 +68,28 @@ auto perform_single_request(
         auto const data = input["data"].get<std::string>();
         slsfs::base::buf const write_buf = slsfs::base::to_buf(data);
 
-        std::string const uuid = "/"s + slsfs::uuid::get_uuid_str(filename);
-        datastorage.write_key(uuid, write_buf);
+        std::string const uuid = slsfs::uuid::get_uuid_str(filename);
+
+        int const realpos = input["position"].get<int>();
+        int const blockid = realpos / datastorage.blocksize();
+        int const offset = realpos % datastorage.blocksize();
+
+        // 2PC first phase
+        bool version_valid = false;
+        while (not version_valid)
+        {
+            version_valid = true;
+            for (auto& host : datastorage.hosts())
+                if (not host->check_version_ok(uuid, blockid, version))
+                {
+                    version++;
+                    version_valid = false;
+                }
+        }
+
+        // 2PC second phase
+        for (auto& host : datastorage.hosts())
+            host->write_key(uuid, blockid, write_buf, offset, version);
 
         slsfs::log::logstring("_data_ perform_single_request send_metadata");
         send_metadata(filename);
@@ -76,10 +100,20 @@ auto perform_single_request(
 
     case "read"_:
     {
-        slsfs::base::buf const data = datastorage.read_key("/"s + slsfs::uuid::get_uuid_str(filename));
-        std::string const datastr = slsfs::base::to_string(data);
+        int const realpos = input["position"].get<int>();
+        int const blockid = realpos / datastorage.blocksize();
+        int const offset = realpos % datastorage.blocksize();
 
-        single_response["data"] = datastr;
+        std::size_t const size = input["size"].get<std::size_t>();
+
+        slsfs::base::buf b;
+        for (auto& host : datastorage.hosts())
+        {
+            b = host->read_key(slsfs::uuid::get_uuid_str(filename), blockid, offset, size);
+            break;
+        }
+
+        single_response["data"] = slsfs::base::to_string(b);
         single_response["response"] = "ok";
         break;
     }

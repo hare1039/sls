@@ -21,9 +21,6 @@ class cassandra : public interface
 public:
     cassandra(char const * hosts)
     {
-        state_.optimal_size = 1024 * 4;
-        state_.priority = 0;
-
         cluster_ = cass_cluster_new();
         session_ = cass_session_new();
         cass_cluster_set_contact_points(cluster_, hosts);
@@ -62,62 +59,57 @@ public:
         }
     }
 
-    void create_volume(std::uint32_t const size, std::string const& name) override
-    {
+//    auto read_block(std::uint32_t const offset) -> base::buf override
+//    {
+//        char const* query = "SELECT value FROM functionkv.tableA WHERE key=?";
+//
+//        CassStatement* statement = cass_statement_new(query, 1);
+//        SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
+//
+//        cass_statement_bind_int32(statement, 0, offset);
+//
+//        base::buf buf;
+//        run_query(statement,
+//                  [&buf] (CassResult const* result) {
+//                      CassRow const * row = cass_result_first_row(result);
+//                      if (row)
+//                      {
+//                          CassValue const * value = cass_row_get_column_by_name(row, "value");
+//
+//                          char const * block = nullptr;
+//                          std::size_t block_length;
+//                          cass_value_get_string(value, &block, &block_length);
+//                          std::string s(block, block_length);
+//
+//                          buf = base::decode(s);
+//                      }
+//                  });
+//        return buf;
+//    }
+//
+//    void write_block(std::uint32_t const offset, base::buf const& buffer) override
+//    {
+//        char const* query = "INSERT INTO functionkv.tableA (key, value) VALUES (?, ?);";
+//
+//        CassStatement* statement = cass_statement_new(query, 2);
+//        SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
+//
+//        std::string v = base::encode(buffer);
+//        cass_statement_bind_int32(statement, 0, offset);
+//        cass_statement_bind_string(statement, 1, v.c_str());
+//
+//        run_query(statement, [] (CassResult const* result) {});
+//    }
 
-        //CREATE TABLE functionkv.tableA (key int, value text, PRIMARY KEY (key));
-    }
-
-    auto read_block(std::uint32_t const offset) -> base::buf override
-    {
-        char const* query = "SELECT value FROM functionkv.tableA WHERE key=?";
-
-        CassStatement* statement = cass_statement_new(query, 1);
-        SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
-
-        cass_statement_bind_int32(statement, 0, offset);
-
-        base::buf buf;
-        run_query(statement,
-                  [&buf] (CassResult const* result) {
-                      CassRow const * row = cass_result_first_row(result);
-                      if (row)
-                      {
-                          CassValue const * value = cass_row_get_column_by_name(row, "value");
-
-                          char const * block = nullptr;
-                          std::size_t block_length;
-                          cass_value_get_string(value, &block, &block_length);
-                          std::string s(block, block_length);
-
-                          buf = base::decode(s);
-                      }
-                  });
-        return buf;
-    }
-
-    void write_block(std::uint32_t const offset, base::buf const& buffer) override
-    {
-        char const* query = "INSERT INTO functionkv.tableA (key, value) VALUES (?, ?);";
-
-        CassStatement* statement = cass_statement_new(query, 2);
-        SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
-
-        std::string v = base::encode(buffer);
-        cass_statement_bind_int32(statement, 0, offset);
-        cass_statement_bind_string(statement, 1, v.c_str());
-
-        run_query(statement, [] (CassResult const* result) {});
-    }
-
-    auto read_key(std::string const name) -> base::buf override
+    auto read_key(std::string const name, std::size_t partition, std::size_t location, std::size_t size) -> base::buf override
     {
         char const* query = "SELECT value FROM functionkv.tableB WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);
         SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
 
-        cass_statement_bind_string(statement, 0, name.c_str());
+        std::string const casskey = name + "-" + std::to_string(partition);
+        cass_statement_bind_string(statement, 0, casskey.c_str());
 
         base::buf buf;
         run_query(statement,
@@ -135,18 +127,21 @@ public:
                           buf = base::decode(s);
                       }
                   });
-        return buf;
+        base::buf selected(size);
+        std::copy_n(std::next(buf.begin(), location), size, selected.begin());
+        return selected;
     }
 
-    void write_key(std::string const name, base::buf const& buffer) override
+    void write_key(std::string const name, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override
     {
         char const* query = "INSERT INTO functionkv.tableB (key, value) VALUES (?, ?);";
 
         CassStatement* statement = cass_statement_new(query, 2);
         SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
 
-        std::string v = base::encode(buffer);
-        cass_statement_bind_string(statement, 0, name.c_str());
+        std::string const casskey = name + "-" + std::to_string(partition);
+        std::string const v = base::encode(buffer);
+        cass_statement_bind_string(statement, 0, casskey.c_str());
         cass_statement_bind_string(statement, 1, v.c_str());
 
         run_query(statement, [] (CassResult const* result) {});

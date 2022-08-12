@@ -10,11 +10,11 @@ namespace metadata
 {
 
 auto perform_single_request(
-    slsfs::storage::interface &datastorage,
-    slsfs::base::json const& input) -> slsfs::base::json
+    df::storage_conf &datastorage,
+    slsfs::base::json const& input,
+    std::uint32_t& version) -> slsfs::base::json
 {
     slsfs::log::logstring("_meta_ perform_single_request start");
-
 
     using namespace std::literals;
     std::cerr << "meta processing request: " << input << "\n";
@@ -32,7 +32,7 @@ auto perform_single_request(
         slsfs::base::buf const write_buf = slsfs::base::to_buf(data);
         single_response["response"] = "ok";
 
-        std::string const uuid = "/"s + slsfs::uuid::get_uuid_str(filename);
+        std::string const uuid = slsfs::uuid::get_uuid_str(filename);
         slsfs::log::logstring("_meta_ perform_single_request datastorage.append");
         datastorage.append_list_key(uuid, write_buf);
         break;
@@ -44,7 +44,7 @@ auto perform_single_request(
         slsfs::log::logstring("_meta_ perform_single_request datastorage.merge");
 
         datastorage.merge_list_key(
-            "/"s + slsfs::uuid::get_uuid_str(filename),
+            slsfs::uuid::get_uuid_str(filename),
             [&outbuf, &single_response] (std::vector<slsfs::base::buf> const & buf) {
                 std::set<std::string> files;
 
@@ -70,7 +70,7 @@ auto perform_single_request(
     case "read"_:
     {
         slsfs::log::logstring("_meta_ perform_single_request datastorage.read");
-        slsfs::base::buf const data = datastorage.read_key("/"s + slsfs::uuid::get_uuid_str(filename));
+        slsfs::base::buf const data = datastorage.read_key(slsfs::uuid::get_uuid_str(filename));
         std::string const datastr = slsfs::base::to_string(data);
 
         single_response["response"] = "ok";

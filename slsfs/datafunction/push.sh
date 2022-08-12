@@ -3,6 +3,8 @@
 tag=nightly;
 set -e;
 
+rm -f exec hello.zip;
+
 docker build -t hare1039/slsfs-datafunction:$tag -f Dockerfile ..
 #docker push hare1039/slsfs-datafunction:$tag
 

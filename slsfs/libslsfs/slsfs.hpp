@@ -7,6 +7,7 @@
 #include "slsfs/basetypes.hpp"
 #include "slsfs/http-verb.hpp"
 #include "slsfs/storage-cassandra.hpp"
+#include "slsfs/storage-ssbd.hpp"
 #include "slsfs/storage.hpp"
 #include "slsfs/switchstring.hpp"
 #include "slsfs/debuglog.hpp"

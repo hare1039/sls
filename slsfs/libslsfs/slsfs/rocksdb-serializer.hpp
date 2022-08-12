@@ -15,7 +15,7 @@
 #include <algorithm>
 #include <random>
 
-namespace rocksdb_pack
+namespace slsfs::rocksdb_pack
 {
 
 namespace
@@ -53,7 +53,6 @@ enum class msg_t: unit_t
     merge_vote_abort     = 0b00001011,
     merge_execute_commit = 0b00001100,
     merge_rollback_commit= 0b00001101,
-
 };
 
 auto operator << (std::ostream &os, msg_t const& msg) -> std::ostream&
