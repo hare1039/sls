@@ -6,7 +6,7 @@
 
 #include "storage-conf.hpp"
 
-namespace df
+namespace slsfsdf
 {
 
 class storage_conf_ssbd : public storage_conf
@@ -27,6 +27,6 @@ public:
     int blocksize() override { return fullsize() - headersize(); }
 };
 
-} // namespace df
+} // namespace slsfsdf
 
 #endif // STORAGE_CONF_SSBD_HPP__

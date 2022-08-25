@@ -37,8 +37,8 @@ void hash_range(std::size_t& seed, It first, It last)
 
 } // namespace
 
-using unit_t = char; // exp
-static_assert(sizeof(char) == 8/8);
+using unit_t = unsigned char; // exp
+static_assert(sizeof(unit_t) == 8/8);
 
 // key = [32] byte main key // sha256 bit
 using key_t = std::array<unit_t, 256 / 8 / sizeof(unit_t)>;

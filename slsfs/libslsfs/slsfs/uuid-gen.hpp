@@ -62,6 +62,25 @@ auto get_uuid(std::string const & filename) -> pack::key_t
     return digest;
 }
 
+auto to_string(pack::key_t const & p) -> std::string
+{
+    std::string digest = "slsfs-";
+    CryptoPP::SHA256 hash;
+
+    CryptoPP::StringSource ss( // no memleak here according to: https://stackoverflow.com/a/7045815/592172$
+        p.data(), p.size(),
+        true,
+        new CryptoPP::HashFilter(
+            hash,
+            new CryptoPP::Base64URLEncoder(
+                new CryptoPP::StringSink(digest)
+                )
+            )
+        );
+
+    return digest;
+}
+
 auto gen_rand(std::size_t length) -> std::vector<pack::unit_t>
 {
     std::vector<pack::unit_t> id(length);

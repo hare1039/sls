@@ -67,8 +67,8 @@ auto init(char const * &signature)
 
 void push_logs()
 {
-    for (std::string const &finalmsg : global_msg_vec())
-        httpdo::logget("http://zion01:2015", finalmsg);
+//    for (std::string const &finalmsg : global_msg_vec())
+//        httpdo::logget("http://zion01:2015", finalmsg);
 }
 
 template<level Level = level::trace>

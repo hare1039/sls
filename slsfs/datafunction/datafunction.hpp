@@ -7,7 +7,7 @@
 
 #include <slsfs.hpp>
 
-namespace datafunction
+namespace slsfsdf
 {
 
 void send_metadata(std::string const & filename)
@@ -34,19 +34,19 @@ void send_metadata(std::string const & filename)
     jsondata["returnchannel"] = slsfs::base::encode(response->header.random_salt);
 
     std::string const v = jsondata.dump();
-    slsfs::log::logstring(std::string("_data_ send_metadata") + v);
+    //slsfs::log::logstring(std::string("_data_ send_metadata") + v);
     request->data.buf = std::vector<slsfs::pack::unit_t>(v.begin(), v.end());
 
     slsfs::send_kafka(request);
 
     slsfs::log::logstring("_data_ send_metadata sent kafka + listen kafka");
-    slsfs::base::json done = slsfs::listen_kafka(response);
+    //slsfs::base::json done = slsfs::listen_kafka(response);
 
     slsfs::log::logstring("_data_ send_metadata end");
 }
 
 auto perform_single_request(
-    df::storage_conf &datastorage,
+    storage_conf &datastorage,
     slsfs::base::json const& input,
     std::uint32_t& version) -> slsfs::base::json
 {
@@ -59,39 +59,51 @@ auto perform_single_request(
     auto const filename = input["filename"].get<std::string>();
     slsfs::base::json single_response;
 
+
     switch (slsfs::sswitch::hash(operation))
     {
         using namespace slsfs::sswitch;
 
     case "write"_:
     {
+        slsfs::log::logstring("_data_ perform_single_request get data");
         auto const data = input["data"].get<std::string>();
         slsfs::base::buf const write_buf = slsfs::base::to_buf(data);
 
-        std::string const uuid = slsfs::uuid::get_uuid_str(filename);
+        slsfs::pack::key_t const uuid = slsfs::uuid::get_uuid(filename);
 
         int const realpos = input["position"].get<int>();
         int const blockid = realpos / datastorage.blocksize();
         int const offset = realpos % datastorage.blocksize();
 
         // 2PC first phase
+        slsfs::log::logstring("_data_ perform_single_request check version");
         bool version_valid = false;
-        while (not version_valid)
-        {
-            version_valid = true;
-            for (auto& host : datastorage.hosts())
-                if (not host->check_version_ok(uuid, blockid, version))
-                {
-                    version++;
-                    version_valid = false;
-                }
-        }
+//        while (not version_valid)
+//        {
+//            version_valid = true;
+//            slsfs::log::logstring("checking hosts version=" + std::to_string(version));
+//
+//            datastorage.foreach(
+//                [&] (std::shared_ptr<slsfs::storage::interface> host) {
+//                    bool ok = host->check_version_ok(uuid, blockid, version);
+//                    if (not ok)
+//                    {
+//                        version_valid = false;
+//                    }
+//                    //** add failure and recovery here **
+//                });
+//        }
+//        version++;
 
+        slsfs::log::logstring("_data_ perform_single_request agreed");
         // 2PC second phase
-        for (auto& host : datastorage.hosts())
-            host->write_key(uuid, blockid, write_buf, offset, version);
+        datastorage.foreach(
+            [&] (std::shared_ptr<slsfs::storage::interface> host) {
+                host->write_key(uuid, blockid, write_buf, offset, version);
+            });
 
-        slsfs::log::logstring("_data_ perform_single_request send_metadata");
+//        slsfs::log::logstring("_data_ perform_single_request send_metadata");
         send_metadata(filename);
 
         single_response["response"] = "ok";
@@ -107,11 +119,10 @@ auto perform_single_request(
         std::size_t const size = input["size"].get<std::size_t>();
 
         slsfs::base::buf b;
-        for (auto& host : datastorage.hosts())
-        {
-            b = host->read_key(slsfs::uuid::get_uuid_str(filename), blockid, offset, size);
-            break;
-        }
+        datastorage.foreach(
+            [&] (std::shared_ptr<slsfs::storage::interface> host) {
+                b = host->read_key(slsfs::uuid::get_uuid(filename), blockid, offset, size);
+            });
 
         single_response["data"] = slsfs::base::to_string(b);
         single_response["response"] = "ok";
@@ -142,6 +153,5 @@ auto perform_single_request(
     return single_response;
 }
 
-
-} // namespace datafunction
+} // namespace slsfsdf
 #endif // DATAFUNCTION_HPP__

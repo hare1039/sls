@@ -101,8 +101,9 @@ public:
 //        run_query(statement, [] (CassResult const* result) {});
 //    }
 
-    auto read_key(std::string const name, std::size_t partition, std::size_t location, std::size_t size) -> base::buf override
+    auto read_key(pack::key_t const& namepack, std::size_t partition, std::size_t location, std::size_t size) -> base::buf override
     {
+        std::string const name = uuid::to_string(namepack);
         char const* query = "SELECT value FROM functionkv.tableB WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);
@@ -132,8 +133,9 @@ public:
         return selected;
     }
 
-    void write_key(std::string const name, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override
+    void write_key(pack::key_t const& namepack, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override
     {
+        std::string const name = uuid::to_string(namepack);
         char const* query = "INSERT INTO functionkv.tableB (key, value) VALUES (?, ?);";
 
         CassStatement* statement = cass_statement_new(query, 2);
@@ -147,8 +149,10 @@ public:
         run_query(statement, [] (CassResult const* result) {});
     }
 
-    void append_list_key(std::string const name, base::buf const& buffer) override
+    void append_list_key(pack::key_t const& namepack, base::buf const& buffer) override
     {
+        std::string const name = uuid::to_string(namepack);
+        //std::string const name = pack::to_string(namepack);
         // CREATE TABLE functionkv.tableC (key text, value list<text>, PRIMARY KEY (key));
         char const* query = "UPDATE functionkv.tableC SET value = value + ? WHERE key=?;";
 
@@ -167,8 +171,9 @@ public:
         run_query(statement, [] (CassResult const*) {});
     }
 
-    void merge_list_key(std::string const name, std::function<void(std::vector<base::buf> const&)> reduce) override
+    void merge_list_key(pack::key_t const& namepack, std::function<void(std::vector<base::buf> const&)> reduce) override
     {
+        std::string const name = uuid::to_string(namepack);
         char const* query = "SELECT value FROM functionkv.tableC WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);
@@ -202,7 +207,7 @@ public:
                   });
     }
 
-    auto  get_list_key(std::string const name) -> base::buf override
+    auto  get_list_key(pack::key_t const& namepack) -> base::buf override
     {
         return {};
     }

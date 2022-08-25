@@ -4,7 +4,7 @@
 
 #include "storage-conf.hpp"
 
-namespace df
+namespace slsfsdf
 {
 
 class storage_conf_cass : public storage_conf
@@ -17,6 +17,6 @@ public:
     virtual int blocksize() override { return 4096; } // byte
 };
 
-} // namespace df
+} // namespace slsfsdf
 
 #endif // STORAGE_CONF_CASS_HPP__

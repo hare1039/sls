@@ -55,7 +55,7 @@ wait
 #
 #echo "start create /helloworld.txt"
 #wsk -i action invoke --blocking slsfs-datafunction --param operation create --param filename /helloworld.txt --param type metadata
-./test.sh
+#./test.sh
 
 #echo "start read   /helloworld.txt"
 #wsk -i action invoke --blocking slsfs-datafunction --param operation read --param filename /helloworld.txt --param type file

@@ -177,6 +177,7 @@ using boost::asio::ip::tcp;
 void send_kafka(pack::packet_pointer payload)
 {
     slsfs::log::logstring("send_kafka start");
+    return;
 
     boost::asio::io_context io_context;
     tcp::socket s(io_context);
@@ -200,6 +201,7 @@ void send_kafka(pack::packet_pointer payload)
 auto listen_kafka(pack::packet_pointer response) -> base::json
 {
     slsfs::log::logstring("listen_kafka start");
+    return {};
 
     boost::asio::io_context io_context;
     tcp::socket s(io_context);

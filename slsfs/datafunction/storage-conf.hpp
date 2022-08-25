@@ -5,7 +5,7 @@
 #include <slsfs.hpp>
 #include <vector>
 
-namespace df
+namespace slsfsdf
 {
 
 class storage_conf
@@ -19,13 +19,18 @@ public:
 
     void connect()
     {
-        for (auto& host : hostlist_)
+        for (std::shared_ptr<slsfs::storage::interface> host : hostlist_)
             host->connect();
     }
 
-    auto hosts() -> decltype(hostlist_)& { return hostlist_; };
+    template<typename DoFunction>
+    void foreach(DoFunction f)
+    {
+        for (std::shared_ptr<slsfs::storage::interface> host : hostlist_)
+            std::invoke(f, host);
+    }
 };
 
-} // namespace df
+} // namespace slsfsdf
 
 #endif // STORAGE_CONF_HPP__
