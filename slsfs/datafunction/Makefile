@@ -1,11 +1,10 @@
 
 
 function:
-	./push.sh
+	CPPBUILDARGS="-DAS_ACTIONLOOP -O3 -DNDEBUG" ./push.sh && ./deploy.sh
 
-exec: datafunction.cpp *.hpp
-	g++ -std=c++17 -o exec datafunction.cpp \
-    -L/usr/local/lib/ -lboost_coroutine -lboost_chrono -lboost_thread -lboost_system -pthread
+exec: *.cpp *.hpp
+	CPPBUILDARGS="-ggdb" ./push.sh && chmod +x exec
 
 deploy:
 	wsk -i action update hare1039/slsfs-actionproxy --docker 'openwhisk/actionloop-base:nightly'

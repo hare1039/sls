@@ -25,10 +25,11 @@ class ssbd : public interface
     tcp::socket socket_;
     char const * host_;
     char const * port_;
+    boost::asio::steady_timer timer_;
 
 public:
     ssbd(boost::asio::io_context& io, char const * host, char const * port):
-        io_context_{io}, socket_(io), host_{host}, port_{port} {}
+        io_context_{io}, socket_(io), host_{host}, port_{port}, timer_{io} {}
 
     void connect() override
     {
@@ -40,7 +41,6 @@ public:
                   std::size_t location, std::size_t size) -> base::buf override
     {
         { // send get
-            log::logstring("storage-ssbd.hpp get");
             rocksdb_pack::packet_pointer ptr = std::make_shared<rocksdb_pack::packet>();
             ptr->header.type = rocksdb_pack::msg_t::get;
             ptr->header.uuid = name;
@@ -52,25 +52,23 @@ public:
         }
 
         { // read resp
-            log::logstring("storage-ssbd.hpp read resp");
             rocksdb_pack::packet_pointer resp = std::make_shared<rocksdb_pack::packet>();
             std::vector<rocksdb_pack::unit_t> headerbuf(rocksdb_pack::packet_header::bytesize);
             boost::asio::read(socket_, boost::asio::buffer(headerbuf.data(), headerbuf.size()));
 
             resp->header.parse(headerbuf.data());
-
             base::buf bodybuf(resp->header.datasize, 0);
+
             boost::asio::read(socket_, boost::asio::buffer(bodybuf.data(), bodybuf.size()));
-            //log::logstring(bodybuf);
             return bodybuf;
         } // read resp
     }
 
     bool check_version_ok(pack::key_t const& name, std::size_t partition,
-                          std::uint32_t &version) override
+                          std::uint32_t& version) override
     {
         // request commit
-        //log::logstring("storage-ssbd.hpp check version start");
+        log::logstring("storage-ssbd.hpp check version start");
 
         rocksdb_pack::packet_pointer ptr = std::make_shared<rocksdb_pack::packet>();
         ptr->header.type = rocksdb_pack::msg_t::merge_request_commit;
@@ -80,32 +78,30 @@ public:
         std::remove_reference_t<decltype(version)> bigendian_version = rocksdb_pack::hton(version);
         ptr->data.buf.resize(sizeof(bigendian_version));
 
+
         std::vector<rocksdb_pack::unit_t> b (sizeof(bigendian_version));
         std::swap(ptr->data.buf, b);
         std::memcpy(ptr->data.buf.data(), &bigendian_version, sizeof(bigendian_version));
 
         auto buf = ptr->serialize();
-        //log::logstring("storage-ssbd.hpp check version write");
         boost::asio::write(socket_, boost::asio::buffer(buf->data(), buf->size()));
 
         // read resp
         rocksdb_pack::packet_pointer resp = std::make_shared<rocksdb_pack::packet>();
         std::vector<rocksdb_pack::unit_t> headerbuf(rocksdb_pack::packet_header::bytesize);
 
-        //log::logstring("storage-ssbd.hpp check version read");
+        log::logstring("storage-ssbd.hpp check version read");
         boost::asio::read(socket_, boost::asio::buffer(headerbuf.data(), headerbuf.size()));
+
         resp->header.parse(headerbuf.data());
 
         std::remove_reference_t<decltype(version)> updated_version;
         assert(resp->header.datasize == sizeof(updated_version));
-        boost::asio::read(socket_,
-                          boost::asio::buffer(std::addressof(updated_version), sizeof(updated_version)));
+
+        boost::asio::read(socket_, boost::asio::buffer(std::addressof(updated_version), sizeof(updated_version)));
+
         updated_version = rocksdb_pack::hton(updated_version);
 
-        //std::stringstream ss;
-        //ss << resp->header;
-
-        //log::logstring("storage-ssbd.hpp get resp header: " + ss.str());
         bool resp_ok = true;
         switch (resp->header.type)
         {
@@ -143,12 +139,20 @@ public:
         std::copy(buffer.begin(), buffer.end(),
                   std::next(ptr->data.buf.begin(), sizeof(version)));
 
-//        std::stringstream sss;
-//        sss << ptr->header << " pos " << partition << " loc " << location << " ver " << version;
-//        log::logstring("ssbd write_key " + sss.str());
-
         auto buf = ptr->serialize();
         boost::asio::write(socket_, boost::asio::buffer(buf->data(), buf->size()));
+
+
+        { // read resp
+
+            rocksdb_pack::packet_pointer resp = std::make_shared<rocksdb_pack::packet>();
+            std::vector<rocksdb_pack::unit_t> headerbuf(rocksdb_pack::packet_header::bytesize);
+
+            boost::asio::read(socket_, boost::asio::buffer(headerbuf.data(), headerbuf.size()));
+
+            resp->header.parse(headerbuf.data());
+
+        } // read resp
     }
 
     void append_list_key(pack::key_t const& name, base::buf const& buffer) override

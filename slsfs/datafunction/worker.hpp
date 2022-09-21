@@ -26,13 +26,11 @@ public:
     void timer_reset()
     {
         using namespace std::chrono_literals;
-        recv_deadline_.expires_from_now(10s);
         recv_deadline_.async_wait(
             [self=this->shared_from_this()] (boost::system::error_code ec) {
                 if (not ec)
                 {
                     slsfs::log::logstring("read header timeout");
-                    slsfs::log::logstring("timer expiried");
 
                     slsfs::pack::packet_pointer pack = std::make_shared<slsfs::pack::packet>();
                     pack->header.type = slsfs::pack::msg_t::worker_dereg;
@@ -40,29 +38,27 @@ public:
                         pack,
                         [self=self->shared_from_this()] (boost::system::error_code ec, std::size_t /* lenght */) {
                             self->socket_.shutdown(tcp::socket::shutdown_receive, ec);
-                            slsfs::log::logstring("send meildown");
+                            slsfs::log::logstring("send shutdown");
                         });
                 }
         });
+        recv_deadline_.expires_from_now(10s);
     }
 
     void start_listen_commands()
     {
-        timer_reset();
-
         slsfs::log::logstring("start_listen_commands");
+        timer_reset();
         auto readbuf = std::make_shared<std::array<slsfs::pack::unit_t, slsfs::pack::packet_header::bytesize>>();
         boost::asio::async_read(
             socket_, boost::asio::buffer(readbuf->data(), readbuf->size()),
             [self=this->shared_from_this(), readbuf] (boost::system::error_code ec, std::size_t /*length*/) {
                 self->recv_deadline_.cancel();
+
                 if (not ec)
                 {
                     slsfs::pack::packet_pointer pack = std::make_shared<slsfs::pack::packet>();
                     pack->header.parse(readbuf->data());
-                    std::stringstream ss;
-                    ss << pack->header;
-                    slsfs::log::logstring(std::string("reading cmd ") + ss.str());
                     self->start_listen_commands_body(pack);
                 }
                 else
@@ -76,7 +72,6 @@ public:
 
     void start_listen_commands_body(slsfs::pack::packet_pointer pack)
     {
-        slsfs::log::logstring("start_listen_commands_body");
         auto read_buf = std::make_shared<std::vector<slsfs::pack::unit_t>>(pack->header.datasize);
         boost::asio::async_read(
             socket_,
@@ -86,6 +81,12 @@ public:
                 {
                     pack->data.parse(length, read_buf->data());
                     self->start_job(pack);
+
+                    slsfs::pack::packet_pointer ok = std::make_shared<slsfs::pack::packet>();
+                    ok->header = pack->header;
+                    ok->header.type = slsfs::pack::msg_t::ack;
+
+                    self->start_write(ok);
                     self->start_listen_commands();
                 }
                 else
@@ -103,7 +104,7 @@ public:
                 write_io_strand_,
                 [self=this->shared_from_this(), buf_pointer] (boost::system::error_code ec, std::size_t /* lenght */) {
                     if (not ec)
-                        slsfs::log::logstring("sent msg");
+                        slsfs::log::logstring("worker sent msg");
                 }));
     }
 
@@ -122,9 +123,8 @@ public:
         boost::asio::post(
             io_,
             [self=this->shared_from_this(), pack] {
-                slsfs::log::logstring<slsfs::log::level::error>("Running job ");
+                slsfs::log::logstring<slsfs::log::level::debug>("Start Job");
                 std::invoke(self->job_, pack);
-                slsfs::log::logstring<slsfs::log::level::error>("Finish job ");
                 self->start_write(pack);
             });
     }

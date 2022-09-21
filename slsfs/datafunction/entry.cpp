@@ -24,12 +24,13 @@ namespace slsfsdf
 
 using boost::asio::ip::tcp;
 
-auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single_input, std::uint32_t& version)
+auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single_input)
     -> slsfs::base::json
 {
-    slsfs::log::logstring("perform start");
-    SCOPE_DEFER([]{ slsfs::log::logstring("perform end"); });
+    slsfs::log::logstring<slsfs::log::level::debug>("perform start");
     auto const datatype = single_input["type"].get<std::string>();
+    SCOPE_DEFER([] { slsfs::log::logstring<slsfs::log::level::debug>("perform end"); });
+
 
     switch (slsfs::sswitch::hash(datatype))
     {
@@ -37,13 +38,13 @@ auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single
 
     case "file"_:
     {
-        return slsfsdf::perform_single_request(datastorage, single_input, version);
+        return slsfsdf::perform_single_request(datastorage, single_input);
         break;
     }
 
     case "metadata"_:
     {
-        return metadata::perform_single_request(datastorage, single_input, version);
+        return metadata::perform_single_request(datastorage, single_input);
         break;
     }
 
@@ -60,38 +61,43 @@ auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single
     return {};
 }
 
-int do_datafunction(std::ostream &ow_out, std::uint32_t& version)
+int do_datafunction(std::ostream &ow_out)
+try
 {
 //    auto start = std::chrono::high_resolution_clock::now();
 //    auto end = std::chrono::high_resolution_clock::now();
 //    auto pass = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+//    ow_out << "{\"hello\": \"world\"}" << std::endl; // enter and flush
     //std::cout << "{\"hello\": \"world\", \"time\": " << pass << "}\n";
+//    return 0;
 
     boost::asio::io_context ioc;
     tcp::socket socket(ioc);
     tcp::resolver resolver(ioc);
 
-    //slsfsdf::storage_conf_cass datastorage;
-    //slsfs::storage::cassandra datastorage{"192.168.2.27"};
-    //datastorage.connect();
-
-    slsfsdf::storage_conf_ssbd datastorage(ioc);
-
-    datastorage.init();
-    datastorage.connect();
-    slsfs::log::logstring("connected to datastorage");
+    //slsfsdf::storage_conf_ssbd datastorage(ioc);
 
     auto worker_ptr = std::make_shared<worker>(
         ioc, socket,
-        [&ow_out, &datastorage, &version] (slsfs::pack::packet_pointer pack) {
+        [&ow_out] (slsfs::pack::packet_pointer pack) {
+            pack->header.type = slsfs::pack::msg_t::worker_response;
+            //std::string v2 = "{}";
+            //pack->data.buf.resize(v2.size());
+            //std::memcpy(pack->data.buf.data(), v2.data(), v2.size());
+            //return;
+
             slsfs::base::json input = slsfs::base::json::parse(pack->data.buf.begin(), pack->data.buf.end());
 
-            std::string v = perform(datastorage, input, version).dump();
+            std::string v;
+            try
+            {
+                slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
 
-            std::stringstream ss;
-            ss << pack->header;
+                v = perform(*datastorage, input).dump();
+            } catch (slsfs::base::json::exception e) {
+                v = "{}";
+            }
 
-            slsfs::log::logstring(std::string("do function and return ") + ss.str() + v);
             pack->header.type = slsfs::pack::msg_t::worker_response;
             pack->data.buf.resize(v.size());// = std::vector<slsfs::pack::unit_t>(v.size(), '\0');
             std::memcpy(pack->data.buf.data(), v.data(), v.size());
@@ -99,15 +105,15 @@ int do_datafunction(std::ostream &ow_out, std::uint32_t& version)
         });
 
     boost::asio::async_connect(
-        socket, resolver.resolve("zion01", "12000"),
-        [&socket, worker_ptr](boost::system::error_code const & ec, tcp::endpoint const& endpoint) {
+        socket, resolver.resolve("ow-ctrl", "12000"),
+        [&socket, worker_ptr] (boost::system::error_code const & ec, tcp::endpoint const& endpoint) {
             slsfs::pack::packet_pointer ptr = std::make_shared<slsfs::pack::packet>();
             ptr->header.type = slsfs::pack::msg_t::worker_reg;
             ptr->header.gen();
 
             worker_ptr->start_write(
                 ptr,
-                [worker_ptr] (boost::system::error_code ec, std::size_t length) {
+                [worker_ptr, ptr] (boost::system::error_code ec, std::size_t length) {
                     worker_ptr->start_listen_commands();
                 });
         });
@@ -123,29 +129,27 @@ int do_datafunction(std::ostream &ow_out, std::uint32_t& version)
     unsigned int const worker = std::min<unsigned int>(4, std::thread::hardware_concurrency());
     v.reserve(worker);
     for(int i = 0; i < worker; i++)
-        v.emplace_back([&ioc] { ioc.run(); });
+        v.emplace_back(
+            [&ioc] {
+                slsfsdf::storage_conf * datastorage = slsfsdf::get_thread_local_datastorage().get();
+                if (datastorage == nullptr)
+                {
+                    slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_ssbd(ioc));
+                    // tech dept; need fix in the storage-conf.hpp and the future;
+                }
 
-    try
-    {
-        std::cin >> input;
-    }
-    catch (std::exception const & e)
-    {
-        slsfs::log::logstring(std::string("exception thrown ") + e.what());
-        return -1;
-    }
+                datastorage->init();
+                datastorage->connect();
+                ioc.run();
+            });
 
-    std::cerr << "get request from stdin: " << input << "\n";
-    slsfs::log::logstring("parsed json");
+    //std::cin >> input;
+    //std::cerr << "get request from stdin: " << input << "\n";
+    //slsfs::log::logstring("parsed json");
 
     json output;
     output["original-request"] = input;
     output["response"] = json::array();
-
-//    slsfs::pack::packet_pointer first_resp = std::make_shared<slsfs::pack::packet>();
-//    first_resp->header.type = slsfs::pack::msg_t::worker_response;
-//    first_resp->data.buf = std::vector<slsfs::pack::unit_t>{97, 98, 99};
-//    worker_ptr->start_write(first_resp);
 
     for (std::thread& th : v)
         th.join();
@@ -155,6 +159,13 @@ int do_datafunction(std::ostream &ow_out, std::uint32_t& version)
 
     return 0;
 }
+catch (std::exception const & e)
+{
+    slsfs::log::logstring(std::string("exception thrown ") + e.what());
+    std::cerr << "do function ecxception: " << e.what() << std::endl;
+    return -1;
+}
+
 
 
 //    try
@@ -189,7 +200,7 @@ int main(int argc, char *argv[])
     slsfs::log::init(name_cstr);
     slsfs::log::logstring("data function start");
 
-    std::uint32_t version = std::time(nullptr);//const auto p1 = std::chrono::system_clock::now();;
+    //std::uint32_t version = std::time(nullptr);//const auto p1 = std::chrono::system_clock::now();;
     SCOPE_DEFER([] { slsfs::log::push_logs(); });
 
 #ifdef AS_ACTIONLOOP
@@ -198,13 +209,13 @@ int main(int argc, char *argv[])
     std::ostream ow_out {&fpstream};
     while (true)
     {
-        int error = slsfsdf::do_datafunction(ow_out, version);
+        int error = slsfsdf::do_datafunction(ow_out);
         if (error != 0)
             return error;
     }
     return 0;
 #else
-    return slsfsdf::do_datafunction(std::cout, version);
+    return slsfsdf::do_datafunction(std::cout);
     //slsfs::log::push_logs();
 #endif
 }

@@ -3,6 +3,7 @@
 #define STORAGE_CONF_HPP__
 
 #include <slsfs.hpp>
+#include <memory>
 #include <vector>
 
 namespace slsfsdf
@@ -30,6 +31,19 @@ public:
             std::invoke(f, host);
     }
 };
+
+// must fix in the future
+auto get_thread_local_datastorage() -> std::unique_ptr<storage_conf>&
+{
+    static thread_local std::unique_ptr<storage_conf> datastorage = nullptr;
+    return datastorage;
+}
+
+void set_thread_local_datastorage(storage_conf * newvalue)
+{
+    get_thread_local_datastorage().reset(newvalue);
+}
+
 
 } // namespace slsfsdf
 

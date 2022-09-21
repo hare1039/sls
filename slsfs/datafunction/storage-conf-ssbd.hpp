@@ -17,7 +17,7 @@ public:
 
     void init() override
     {
-        hostlist_.push_back(std::make_shared<slsfs::storage::ssbd>(io_context_, "zion08", "12000"));
+        hostlist_.push_back(std::make_shared<slsfs::storage::ssbd>(io_context_, "ssbd-2", "12000"));
         //hostlist_.push_back(std::make_shared<slsfs::storage::ssbd>(io_context_, "zion08", "12000"));
         //hostlist_.push_back(std::make_shared<slsfs::storage::ssbd>(io_context_, "zion08", "12000"));
     }

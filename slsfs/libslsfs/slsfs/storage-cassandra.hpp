@@ -50,10 +50,24 @@ public:
         if (cass_future_error_code(connect_future_) == CASS_OK)
         {
             CassFuture* result_future = cass_session_execute(session_, statement);
-            SCOPE_DEFER([&result_future]() { cass_future_free(result_future); });
+            //SCOPE_DEFER([&result_future]() { cass_future_free(result_future); });
 
             CassResult const * result = cass_future_get_result(result_future);
-            SCOPE_DEFER([&result]() { cass_result_free(result); });
+            if (result == NULL)
+            {
+                CassError error_code = cass_future_error_code(result_future);
+                char const* error_message;
+                size_t error_message_length;
+                cass_future_error_message(result_future, &error_message, &error_message_length);
+                std::fprintf(stderr, "Error: %s\nError Message %.*s\n",
+                             cass_error_desc(error_code),
+                             (int)error_message_length,
+                             error_message);
+            }
+
+            //SCOPE_DEFER([&result]() { cass_result_free(result); });
+            //std::cerr << "addr=:" << result << std::endl;
+            //std::cerr << "row count in query:" << cass_result_row_count(result) << std::endl;
 
             std::invoke(callback, result);
         }
@@ -104,7 +118,7 @@ public:
     auto read_key(pack::key_t const& namepack, std::size_t partition, std::size_t location, std::size_t size) -> base::buf override
     {
         std::string const name = uuid::to_string(namepack);
-        char const* query = "SELECT value FROM functionkv.tableB WHERE key=?";
+        char const* query = "SELECT value FROM sp3.tableA3 WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);
         SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
@@ -115,6 +129,7 @@ public:
         base::buf buf;
         run_query(statement,
                   [&buf] (CassResult const* result) {
+                      //std::cerr << "row count:" << cass_result_row_count(result) << std::endl;
                       CassRow const * row = cass_result_first_row(result);
                       if (row)
                       {
@@ -136,7 +151,7 @@ public:
     void write_key(pack::key_t const& namepack, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override
     {
         std::string const name = uuid::to_string(namepack);
-        char const* query = "INSERT INTO functionkv.tableB (key, value) VALUES (?, ?);";
+        char const* query = "INSERT INTO sp3.tableA3 (key, value) VALUES (?, ?);";
 
         CassStatement* statement = cass_statement_new(query, 2);
         SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
@@ -154,7 +169,7 @@ public:
         std::string const name = uuid::to_string(namepack);
         //std::string const name = pack::to_string(namepack);
         // CREATE TABLE functionkv.tableC (key text, value list<text>, PRIMARY KEY (key));
-        char const* query = "UPDATE functionkv.tableC SET value = value + ? WHERE key=?;";
+        char const* query = "UPDATE sp3.tableA3 SET value = value + ? WHERE key=?;";
 
         CassStatement* statement = cass_statement_new(query, 2);
         SCOPE_DEFER([&statement]() { cass_statement_free(statement); });
@@ -174,7 +189,7 @@ public:
     void merge_list_key(pack::key_t const& namepack, std::function<void(std::vector<base::buf> const&)> reduce) override
     {
         std::string const name = uuid::to_string(namepack);
-        char const* query = "SELECT value FROM functionkv.tableC WHERE key=?";
+        char const* query = "SELECT value FROM sp3.tableA3 WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);
         SCOPE_DEFER([&statement]() { cass_statement_free(statement); });

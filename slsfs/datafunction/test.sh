@@ -9,7 +9,7 @@
 #    --param returnchannel "31kijg=="
 
 echo "starting test..."
-time wsk -i action invoke --blocking slsfs-datafunction --param operation read --param filename /helloworld.txt --param type file
+time wsk -i action invoke --blocking slsfs-datafunction --param operation read --param filename /helloworld.txt --param type file --param position 0 --param size 3;
 #time wsk -i action invoke --blocking slsfs-datafunction --param type storagetest
 #time wsk -i action invoke --blocking slsfs-datafunction --param operation write --param filename /helloworld.txt --param type file --param data osdiatc2022
 

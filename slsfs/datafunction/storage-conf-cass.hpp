@@ -11,7 +11,7 @@ class storage_conf_cass : public storage_conf
 {
 public:
     virtual void init() override {
-        hostlist_.push_back(std::make_shared<slsfs::storage::cassandra>("192.168.2.27"));
+        hostlist_.push_back(std::make_shared<slsfs::storage::cassandra>("ssbd-2"));
     }
 
     virtual int blocksize() override { return 4096; } // byte

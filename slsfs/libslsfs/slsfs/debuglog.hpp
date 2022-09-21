@@ -10,7 +10,7 @@
 #include <thread>
 #include <memory>
 #include <chrono>
-#include <vector>
+
 
 namespace slsfs::log
 {
@@ -22,7 +22,8 @@ enum class level
     info,
     warning,
     error,
-    fatal
+    fatal,
+    none
 };
 
 namespace
@@ -33,7 +34,7 @@ struct global_info
     char const ** signature;
     std::chrono::high_resolution_clock::time_point start;
     static constexpr bool to_remote = false;
-    static constexpr level current_level = level::trace;
+    static constexpr level current_level = level::info;
 };
 
 auto global_info_instance() -> global_info&
@@ -42,11 +43,11 @@ auto global_info_instance() -> global_info&
     return info;
 }
 
-auto global_msg_vec() -> std::vector<std::string>&
-{
-    static std::vector<std::string> reg;
-    return reg;
-}
+//auto global_msg_vec() -> std::vector<std::string>&
+//{
+//    static std::vector<std::string> reg;
+//    return reg;
+//}
 
 } // namespace
 
@@ -75,22 +76,24 @@ template<level Level = level::trace>
 void logstring(std::string const & msg)
 {
 #ifdef NDEBUG
-    //return;
+//    return;
 #endif // NDEBUG
 
     auto const now = std::chrono::high_resolution_clock::now();
     global_info& info = global_info_instance();
     auto relativetime = std::chrono::duration_cast<std::chrono::nanoseconds>(now - info.start).count();
 
-    if (global_info::current_level >= Level)
+    if constexpr (global_info::current_level <= Level)
     {
+//        std::stringstream ss;
+//        ss << std::this_thread::get_id();
         std::string const finalmsg = fmt::format("[{0:12d} {1}] {2}", relativetime, (*info.signature), msg);
         if (global_info::to_remote)
             httpdo::logget("http://zion01:2015", finalmsg);
 
-        global_msg_vec().push_back(finalmsg);
+        //global_msg_vec().push_back(finalmsg);
 
-        std::cerr << finalmsg << "\n";
+        std::cerr << finalmsg << std::endl;
     }
     return;
 }

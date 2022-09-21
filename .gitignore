@@ -5,3 +5,4 @@
 *.log
 **/record.sh_*-logs
 /experiment/workspace
+exec

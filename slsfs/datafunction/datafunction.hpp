@@ -4,6 +4,7 @@
 
 #include "storage-conf-cass.hpp"
 #include "storage-conf-ssbd.hpp"
+#include "version.hpp"
 
 #include <slsfs.hpp>
 
@@ -34,7 +35,6 @@ void send_metadata(std::string const & filename)
     jsondata["returnchannel"] = slsfs::base::encode(response->header.random_salt);
 
     std::string const v = jsondata.dump();
-    //slsfs::log::logstring(std::string("_data_ send_metadata") + v);
     request->data.buf = std::vector<slsfs::pack::unit_t>(v.begin(), v.end());
 
     slsfs::send_kafka(request);
@@ -47,18 +47,16 @@ void send_metadata(std::string const & filename)
 
 auto perform_single_request(
     storage_conf &datastorage,
-    slsfs::base::json const& input,
-    std::uint32_t& version) -> slsfs::base::json
+    slsfs::base::json const& input) -> slsfs::base::json
 {
-    slsfs::log::logstring("_data_ perform_single_request start");
+    slsfs::log::logstring("_data_ perform_single_request start: " + input.dump());
 
     using namespace std::literals;
-    std::cerr << "processing request: " << input << "\n";
+//    std::cerr << "processing request: " << input << "\n";
 
     auto const operation = input["operation"].get<std::string>();
     auto const filename = input["filename"].get<std::string>();
     slsfs::base::json single_response;
-
 
     switch (slsfs::sswitch::hash(operation))
     {
@@ -74,33 +72,33 @@ auto perform_single_request(
 
         int const realpos = input["position"].get<int>();
         int const blockid = realpos / datastorage.blocksize();
-        int const offset = realpos % datastorage.blocksize();
+        int const offset  = realpos % datastorage.blocksize();
 
         // 2PC first phase
         slsfs::log::logstring("_data_ perform_single_request check version");
         bool version_valid = false;
-//        while (not version_valid)
-//        {
-//            version_valid = true;
-//            slsfs::log::logstring("checking hosts version=" + std::to_string(version));
-//
-//            datastorage.foreach(
-//                [&] (std::shared_ptr<slsfs::storage::interface> host) {
-//                    bool ok = host->check_version_ok(uuid, blockid, version);
-//                    if (not ok)
-//                    {
-//                        version_valid = false;
-//                    }
-//                    //** add failure and recovery here **
-//                });
-//        }
-//        version++;
+        std::uint32_t v = 0;
+        while (not version_valid)
+        {
+            version_valid = true;
+            std::uint32_t setv = std::max(v, version());
+
+            //slsfs::log::logstring(fmt::format("get new v: {}, {}, {}", v, setv, version()));
+            datastorage.foreach(
+                [&uuid, &blockid, &setv, &v, &version_valid] (std::shared_ptr<slsfs::storage::interface> host) {
+                    bool ok = host->check_version_ok(uuid, blockid, setv);
+                    if (not ok)
+                        version_valid = false;
+                    v = setv;
+                    //** add failure and recovery here **
+                });
+        }
 
         slsfs::log::logstring("_data_ perform_single_request agreed");
         // 2PC second phase
         datastorage.foreach(
             [&] (std::shared_ptr<slsfs::storage::interface> host) {
-                host->write_key(uuid, blockid, write_buf, offset, version);
+                host->write_key(uuid, blockid, write_buf, offset, v);
             });
 
 //        slsfs::log::logstring("_data_ perform_single_request send_metadata");

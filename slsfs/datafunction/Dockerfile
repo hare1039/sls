@@ -11,7 +11,8 @@ RUN apk update && \
                                  boost-dev boost-static \
                                  make
 
-RUN apk add crypto++-static crypto++-dev --repository=http://dl-cdn.alpinelinux.org/alpine/edge/testing/
+RUN git clone --branch CRYPTOPP_8_7_0 https://github.com/weidai11/cryptopp.git /cryptopp && \
+    cd /cryptopp && CXXFLAGS="-DNDEBUG -g2 -O3 -std=c++11" make -j && make install
 
 RUN git clone --branch v1.8.2 https://github.com/edenhill/librdkafka.git /librdkafka && \
     cd /librdkafka && ./configure --enable-static --disable-sasl --install-deps && \
@@ -26,9 +27,11 @@ ADD datafunction /action/
 #
 #RUN cd /action; bash ./build-libslsfs.sh
 
-RUN cd /action && time g++ -O3 -std=c++17 -o exec -static *.cpp \
+ARG CPPBUILDARGS
+
+RUN cd /action && time g++ -std=c++20 -o exec -static *.cpp \
     -DFMT_HEADER_ONLY \
-    -DAS_ACTIONLOOP \
+    $CPPBUILDARGS \
     -I/action/libslsfs/ -I/action/libslsfs/slsfs \
     -L/usr/local/lib/ -pthread \
     -lcryptopp -lcassandra_static \

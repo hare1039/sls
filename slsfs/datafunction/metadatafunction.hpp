@@ -2,6 +2,8 @@
 #ifndef METADATA_FUNCTION_HPP__
 #define METADATA_FUNCTION_HPP__
 
+#include "version.hpp"
+
 #include <slsfs.hpp>
 
 #include <set>
@@ -11,8 +13,7 @@ namespace metadata
 
 auto perform_single_request(
     slsfsdf::storage_conf &datastorage,
-    slsfs::base::json const& input,
-    std::uint32_t& version) -> slsfs::base::json
+    slsfs::base::json const& input) -> slsfs::base::json
 {
     slsfs::log::logstring("_meta_ perform_single_request start");
 
