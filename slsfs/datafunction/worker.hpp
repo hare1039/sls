@@ -42,7 +42,7 @@ public:
                         });
                 }
         });
-        recv_deadline_.expires_from_now(10s);
+        recv_deadline_.expires_from_now(1s);
     }
 
     void start_listen_commands()
@@ -54,9 +54,11 @@ public:
             socket_, boost::asio::buffer(readbuf->data(), readbuf->size()),
             [self=this->shared_from_this(), readbuf] (boost::system::error_code ec, std::size_t /*length*/) {
                 self->recv_deadline_.cancel();
+                slsfs::log::logstring<slsfs::log::level::info>("start_listen_commands get cmd");
 
                 if (not ec)
                 {
+                    slsfs::log::logstring<slsfs::log::level::debug>("get cmd");
                     slsfs::pack::packet_pointer pack = std::make_shared<slsfs::pack::packet>();
                     pack->header.parse(readbuf->data());
                     self->start_listen_commands_body(pack);

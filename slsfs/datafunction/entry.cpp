@@ -16,8 +16,39 @@
 #include <memory>
 #include <thread>
 #include <sstream>
+#include <map>
 #include <ctime>
 
+template<typename Function, typename ... Args>
+auto record(Function &&f, Args &&... args) -> long int
+{
+    auto const start = std::chrono::high_resolution_clock::now();
+    std::invoke(f, std::forward<Args>(args)...);
+    auto const now = std::chrono::high_resolution_clock::now();
+    auto relativetime = std::chrono::duration_cast<std::chrono::nanoseconds>(now - start).count();
+    return relativetime;
+}
+
+template<typename Iterator>
+void stats(Iterator start, Iterator end, std::string const memo = "")
+{
+    int const size = std::distance(start, end);
+
+    double sum = std::accumulate(start, end, 0.0);
+    double mean = sum / size, var = 0;
+
+    std::map<int, int> dist;
+    for (; start != end; start++)
+    {
+        dist[(*start)/1000000]++;
+        var += std::pow((*start) - mean, 2);
+    }
+
+    var /= size;
+    slsfs::log::logstring<slsfs::log::level::info>(fmt::format("{0} avg={1:.3f} sd={2:.3f}", memo, mean, std::sqrt(var)));
+    for (auto && [time, count] : dist)
+        slsfs::log::logstring<slsfs::log::level::info>(fmt::format("{0} {1}: {2}", memo, time, count));
+}
 
 namespace slsfsdf
 {
@@ -30,7 +61,6 @@ auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single
     slsfs::log::logstring<slsfs::log::level::debug>("perform start");
     auto const datatype = single_input["type"].get<std::string>();
     SCOPE_DEFER([] { slsfs::log::logstring<slsfs::log::level::debug>("perform end"); });
-
 
     switch (slsfs::sswitch::hash(datatype))
     {
@@ -45,6 +75,11 @@ auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single
     case "metadata"_:
     {
         return metadata::perform_single_request(datastorage, single_input);
+        break;
+    }
+
+    case "wakeup"_:
+    {
         break;
     }
 
@@ -86,47 +121,69 @@ try
             //std::memcpy(pack->data.buf.data(), v2.data(), v2.size());
             //return;
 
+            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request"));
+            auto const start = std::chrono::high_resolution_clock::now();
+
             slsfs::base::json input = slsfs::base::json::parse(pack->data.buf.begin(), pack->data.buf.end());
 
+            //slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed done"));
             std::string v;
             try
             {
                 slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
+                perform(*datastorage, input).dump();
 
-                v = perform(*datastorage, input).dump();
             } catch (slsfs::base::json::exception e) {
                 v = "{}";
             }
+            //v = "{}";
 
             pack->header.type = slsfs::pack::msg_t::worker_response;
             pack->data.buf.resize(v.size());// = std::vector<slsfs::pack::unit_t>(v.size(), '\0');
             std::memcpy(pack->data.buf.data(), v.data(), v.size());
+            auto const end = std::chrono::high_resolution_clock::now();
+
+            auto relativetime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
+            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("req finish in: {}", relativetime));
             //pack->data.buf = std::vector<slsfs::pack::unit_t>{65, 66, 67};
         });
 
     boost::asio::async_connect(
-        socket, resolver.resolve("ow-ctrl", "12000"),
+        socket,
+        //resolver.resolve("ow-ctrl", "12000"),
+        resolver.resolve("10.0.0.240", "12000"),
         [&socket, worker_ptr] (boost::system::error_code const & ec, tcp::endpoint const& endpoint) {
-            slsfs::pack::packet_pointer ptr = std::make_shared<slsfs::pack::packet>();
-            ptr->header.type = slsfs::pack::msg_t::worker_reg;
-            ptr->header.gen();
 
-            worker_ptr->start_write(
-                ptr,
-                [worker_ptr, ptr] (boost::system::error_code ec, std::size_t length) {
-                    worker_ptr->start_listen_commands();
-                });
+            if (ec)
+            {
+                std::stringstream ss;
+                ss << " connect to proxy error: " << ec.message();
+                slsfs::log::logstring(ss.str());
+            }
+            else
+            {
+                slsfs::pack::packet_pointer ptr = std::make_shared<slsfs::pack::packet>();
+                ptr->header.type = slsfs::pack::msg_t::worker_reg;
+                ptr->header.gen();
+
+                worker_ptr->start_write(
+                    ptr,
+                    [worker_ptr, ptr] (boost::system::error_code ec, std::size_t length) {
+                        worker_ptr->start_listen_commands();
+                    });
+            }
+
         });
 
     using json = slsfs::base::json;
     using namespace std::literals;
     json input;
 
-    boost::asio::deadline_timer t(ioc, boost::posix_time::seconds(1));
+    boost::asio::deadline_timer t(ioc, boost::posix_time::seconds(10));
     t.async_wait([](boost::system::error_code const&) {});
 
     std::vector<std::thread> v;
-    unsigned int const worker = std::min<unsigned int>(4, std::thread::hardware_concurrency());
+    unsigned int const worker = std::min<unsigned int>(1, std::thread::hardware_concurrency());
     v.reserve(worker);
     for(int i = 0; i < worker; i++)
         v.emplace_back(
@@ -135,17 +192,19 @@ try
                 if (datastorage == nullptr)
                 {
                     slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_ssbd(ioc));
+                    datastorage = slsfsdf::get_thread_local_datastorage().get();
                     // tech dept; need fix in the storage-conf.hpp and the future;
                 }
 
                 datastorage->init();
                 datastorage->connect();
+                slsfs::log::logstring("starting ioc");
                 ioc.run();
             });
 
-    //std::cin >> input;
-    //std::cerr << "get request from stdin: " << input << "\n";
-    //slsfs::log::logstring("parsed json");
+    std::cin >> input;
+    std::cerr << "get request from stdin: " << input << "\n";
+    slsfs::log::logstring("parsed json");
 
     json output;
     output["original-request"] = input;
@@ -205,16 +264,20 @@ int main(int argc, char *argv[])
 
 #ifdef AS_ACTIONLOOP
     namespace io = boost::iostreams;
+
     io::stream_buffer<io::file_descriptor_sink> fpstream(3, io::close_handle);
     std::ostream ow_out {&fpstream};
     while (true)
     {
+        std::cerr << "starting as action loop" << std::endl;
+        //records.push_back(record([&](){ slsfsdf::do_datafunction(ow_out); }));
         int error = slsfsdf::do_datafunction(ow_out);
         if (error != 0)
             return error;
     }
     return 0;
 #else
+    std::cerr << "starting as normal" << std::endl;
     return slsfsdf::do_datafunction(std::cout);
     //slsfs::log::push_logs();
 #endif

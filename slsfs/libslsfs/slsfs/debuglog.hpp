@@ -93,7 +93,7 @@ void logstring(std::string const & msg)
 
         //global_msg_vec().push_back(finalmsg);
 
-        std::cerr << finalmsg << std::endl;
+        std::cout << finalmsg << std::endl;
     }
     return;
 }

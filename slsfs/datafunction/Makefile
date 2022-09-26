@@ -1,7 +1,14 @@
 
+#.PHONY function function-debug exec-debug exec
 
-function:
+function-debug: *.cpp *.hpp
+	CPPBUILDARGS="-DAS_ACTIONLOOP -ggdb" ./push.sh && ./deploy.sh
+
+function: *.cpp *.hpp
 	CPPBUILDARGS="-DAS_ACTIONLOOP -O3 -DNDEBUG" ./push.sh && ./deploy.sh
+
+exec-debug: *.cpp *.hpp
+	CPPBUILDARGS="-O3 -DNDEBUG" ./push.sh && chmod +x exec
 
 exec: *.cpp *.hpp
 	CPPBUILDARGS="-ggdb" ./push.sh && chmod +x exec
