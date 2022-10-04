@@ -128,15 +128,15 @@ try
 
             //slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed done"));
             std::string v;
+            slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
             try
             {
-                slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
-                perform(*datastorage, input).dump();
-
-            } catch (slsfs::base::json::exception e) {
+                v = perform(*datastorage, input).dump();
+            }
+            catch (std::exception &e)
+            {
                 v = "{}";
             }
-            //v = "{}";
 
             pack->header.type = slsfs::pack::msg_t::worker_response;
             pack->data.buf.resize(v.size());// = std::vector<slsfs::pack::unit_t>(v.size(), '\0');
@@ -153,7 +153,7 @@ try
         //resolver.resolve("ow-ctrl", "12000"),
         resolver.resolve("10.0.0.240", "12000"),
         [&socket, worker_ptr] (boost::system::error_code const & ec, tcp::endpoint const& endpoint) {
-
+            socket.set_option(tcp::no_delay(true));
             if (ec)
             {
                 std::stringstream ss;
@@ -183,7 +183,7 @@ try
     t.async_wait([](boost::system::error_code const&) {});
 
     std::vector<std::thread> v;
-    unsigned int const worker = std::min<unsigned int>(1, std::thread::hardware_concurrency());
+    unsigned int const worker = std::min<unsigned int>(4, std::thread::hardware_concurrency());
     v.reserve(worker);
     for(int i = 0; i < worker; i++)
         v.emplace_back(
@@ -191,7 +191,8 @@ try
                 slsfsdf::storage_conf * datastorage = slsfsdf::get_thread_local_datastorage().get();
                 if (datastorage == nullptr)
                 {
-                    slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_ssbd(ioc));
+                    //slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_ssbd(ioc));
+                    slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_cass);
                     datastorage = slsfsdf::get_thread_local_datastorage().get();
                     // tech dept; need fix in the storage-conf.hpp and the future;
                 }

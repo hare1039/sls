@@ -8,7 +8,7 @@ RUN apk update && \
                                  cassandra-cpp-driver-dev \
                                  openssl-libs-static zlib-static cyrus-sasl-static \
                                  curl-dev curl-static nghttp2-static zstd-static libuv-static brotli-static \
-                                 boost-dev boost-static \
+                                 boost-dev boost-static ccache \
                                  make
 
 RUN git clone --branch CRYPTOPP_8_7_0 https://github.com/weidai11/cryptopp.git /cryptopp && \
@@ -28,8 +28,9 @@ ADD datafunction /action/
 #RUN cd /action; bash ./build-libslsfs.sh
 
 ARG CPPBUILDARGS
+ENV CCACHE_DIR=/ccache
 
-RUN cd /action && time g++ -std=c++20 -o exec -static *.cpp \
+RUN --mount=type=cache,target=/ccache cd /action && time ccache g++ -std=c++20 -o exec -static *.cpp \
     -DFMT_HEADER_ONLY \
     $CPPBUILDARGS \
     -I/action/libslsfs/ -I/action/libslsfs/slsfs \

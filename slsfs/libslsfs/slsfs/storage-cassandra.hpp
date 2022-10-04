@@ -6,6 +6,7 @@
 #include "storage.hpp"
 #include "basetypes.hpp"
 #include "scope-exit.hpp"
+#include "debuglog.hpp"
 
 #include <cassandra.h>
 #include <vector>
@@ -143,8 +144,15 @@ public:
                           buf = base::decode(s);
                       }
                   });
-        base::buf selected(size);
-        std::copy_n(std::next(buf.begin(), location), size, selected.begin());
+
+        //std::stringstream ss;
+        //for (std::uint8_t i : buf)
+        //    ss << i << " ";
+        //log::logstring<log::level::info>(ss.str());
+
+        std::size_t minsize = std::min(buf.size(), size);
+        base::buf selected(minsize);
+        std::copy_n(std::next(buf.begin(), location), minsize, selected.begin());
         return selected;
     }
 

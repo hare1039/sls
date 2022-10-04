@@ -2,16 +2,16 @@
 #.PHONY function function-debug exec-debug exec
 
 function-debug: *.cpp *.hpp
-	CPPBUILDARGS="-DAS_ACTIONLOOP -ggdb" ./push.sh && ./deploy.sh
+	DOCKER_BUILDKIT=1 CPPBUILDARGS="-DAS_ACTIONLOOP -ggdb" ./push.sh && ./deploy.sh
 
 function: *.cpp *.hpp
-	CPPBUILDARGS="-DAS_ACTIONLOOP -O3 -DNDEBUG" ./push.sh && ./deploy.sh
+	DOCKER_BUILDKIT=1 CPPBUILDARGS="-DAS_ACTIONLOOP -O3 -DNDEBUG" ./push.sh && ./deploy.sh
 
 exec-debug: *.cpp *.hpp
-	CPPBUILDARGS="-O3 -DNDEBUG" ./push.sh && chmod +x exec
+	DOCKER_BUILDKIT=1 CPPBUILDARGS="-ggdb" ./push.sh && chmod +x exec
 
 exec: *.cpp *.hpp
-	CPPBUILDARGS="-ggdb" ./push.sh && chmod +x exec
+	DOCKER_BUILDKIT=1 CPPBUILDARGS="-O3 -DNDEBUG" ./push.sh && chmod +x exec
 
 deploy:
 	wsk -i action update hare1039/slsfs-actionproxy --docker 'openwhisk/actionloop-base:nightly'

@@ -112,7 +112,7 @@ auto perform_single_request(
     {
         int const realpos = input["position"].get<int>();
         int const blockid = realpos / datastorage.blocksize();
-        int const offset = realpos % datastorage.blocksize();
+        int const offset  = realpos % datastorage.blocksize();
 
         std::size_t const size = input["size"].get<std::size_t>();
 
