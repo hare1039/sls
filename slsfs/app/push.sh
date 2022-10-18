@@ -5,7 +5,7 @@ set -e;
 docker build -t hare1039/example-app-slsfs:$tag -f Dockerfile ..
 docker push hare1039/example-app-slsfs:$tag
 wsk -i action delete example-app-slsfs || true;
-wsk -i action create example-app-slsfs --docker hare1039/example-app-slsfs:$tag --concurrency 1000
+wsk -i action create example-app-slsfs --docker hare1039/example-app-slsfs:$tag --concurrency 500
 
 if [[ "$BUILDONLY" == "TRUE" ]]; then
     exit 0;

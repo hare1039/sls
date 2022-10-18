@@ -191,8 +191,8 @@ try
                 slsfsdf::storage_conf * datastorage = slsfsdf::get_thread_local_datastorage().get();
                 if (datastorage == nullptr)
                 {
-                    //slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_ssbd(ioc));
-                    slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_cass);
+                    slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_ssbd(ioc));
+                    //slsfsdf::set_thread_local_datastorage(new slsfsdf::storage_conf_cass);
                     datastorage = slsfsdf::get_thread_local_datastorage().get();
                     // tech dept; need fix in the storage-conf.hpp and the future;
                 }

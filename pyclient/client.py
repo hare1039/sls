@@ -12,10 +12,9 @@ def runfunction(target, myobj, times):
         "User-Agent": "amd64"
     }
 
-    for warm in range(0, 5):
+    for warm in range(0, 1):
         x = requests.post(url, json = myobj, headers = headers, verify=False)
         #print(x.text)
-
 
     start = time.perf_counter_ns()
     for i in range(0, times):
@@ -25,7 +24,7 @@ def runfunction(target, myobj, times):
             print(x.text)
             break
     dur = time.perf_counter_ns() - start
-    print(x.text)
+    #print(x.text)
     return dur / times
 
 #print(runfunction("direct-dev-hello", {}, 1000))
@@ -33,6 +32,7 @@ def runfunction(target, myobj, times):
 #print(runfunction("hellozip", {"name":"World"}, 1000))
 #print(runfunction("helloPython", {"name":"World"}, 1000))
 #print(runfunction("hello-go", {"name":"World"}, 1000))
-
-print(runfunction("slsfs-datafunction", {"operation": "read", "filename": "/helloworld.txt", "type": "file"}, 800))
+#print(runfunction("example-app-slsfs", {"operation": "read", "filename": "/helloworld.txt", "type": "file"}, 58))
+print(runfunction("appv2", {"operation": "read", "filename": "/helloworld.txt", "type": "file"}, 58))
+#print(runfunction("slsfs-datafunction", {"operation": "read", "filename": "/helloworld.txt", "type": "file"}, 800))
 #print(runfunction("slsfs-datafunction", {"operation": "write", "filename": "/helloworld.txt", "type": "file", "data": "osdiatc2022"}, 100))

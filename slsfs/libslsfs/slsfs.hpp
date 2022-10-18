@@ -12,7 +12,7 @@
 #include "slsfs/switchstring.hpp"
 #include "slsfs/debuglog.hpp"
 #include "slsfs/serializer.hpp"
-
+#include "slsfs/json-replacement.hpp"
 
 #include <kafka/KafkaConsumer.h>
 #include <kafka/KafkaProducer.h>
@@ -172,7 +172,12 @@ int create(char const * filename)
 namespace v2
 {
 
+namespace
+{
+
 using boost::asio::ip::tcp;
+
+}
 
 void send_kafka(pack::packet_pointer payload)
 {
@@ -256,12 +261,7 @@ int create(char const * filename)
 //    return 0;
 }
 
-
-} // namespace v2
-
-using namespace v2;
-
-auto write(char const * filename, char const *data, std::size_t size, off_t off, /*struct fuse_file_info*/ void* info )
+auto write(char const * filename, char const *data, std::size_t size, off_t off, /*struct fuse_file_info*/ void* info)
     -> std::size_t
 {
     slsfs::log::logstring("write start");
@@ -341,6 +341,75 @@ auto read(char const * filename, char *data, std::size_t size, off_t off, /*stru
     slsfs::log::logstring("read end");
     return readsize;
 }
+
+} // namespace v2
+
+namespace v3
+{
+
+namespace
+{
+
+using boost::asio::ip::tcp;
+
+}
+
+auto write(char const * filename,
+           char const *data, std::size_t size,
+           off_t off, /*struct fuse_file_info*/ void* info,
+           tcp::socket * connection = nullptr)
+    -> std::size_t
+{
+    boost::asio::io_context io_context;
+    tcp::socket tmpsocket(io_context);
+
+    if (connection == nullptr)
+    {
+        connection = std::addressof(tmpsocket);
+        tcp::resolver resolver(io_context);
+        boost::asio::connect(*connection, resolver.resolve("ow-ctrl", "12000"));
+    }
+
+    pack::packet_pointer request = std::make_shared<pack::packet>();
+    pack::key_t const uuid = uuid::get_uuid(filename);
+    request->header.type = pack::msg_t::trigger;
+    request->header.key = uuid;
+    request->header.gen_sequence();
+
+    //char const * filename, char const *data, std::size_t size, off_t off,
+    std::string const payload =
+        fmt::format("{{ \"operation\": \"write\", \"filename\": \"{}\", \"type\": \"file\", \"position\": {}, \"size\": {}, \"data\": \"{}\" }}",
+                    filename, off, size, data);
+//    std::copy(payload.begin(), payload.end(), std::back_inserter(ptr->data.buf));
+}
+
+auto read(char const * filename,
+          char *data, std::size_t size,
+          off_t off, /*struct fuse_file_info*/ void* info,
+          tcp::socket * connection = nullptr)
+    -> std::size_t
+{
+
+}
+
+void send_kafka(pack::packet_pointer payload)
+{
+}
+
+auto listen_kafka(pack::packet_pointer response) -> base::json
+{
+    return {};
+}
+
+int create(char const * filename)
+{
+    return 0;
+}
+
+
+} // namespace v3
+
+using namespace v3;
 
 } // namespace slsfs
 
