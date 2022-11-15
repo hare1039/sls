@@ -34,7 +34,7 @@ struct global_info
     char const ** signature;
     std::chrono::high_resolution_clock::time_point start;
     static constexpr bool to_remote = false;
-    static constexpr level current_level = level::info;
+    static constexpr level current_level = level::trace;
 };
 
 auto global_info_instance() -> global_info&

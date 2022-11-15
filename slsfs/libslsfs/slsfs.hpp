@@ -381,6 +381,7 @@ auto write(char const * filename,
         fmt::format("{{ \"operation\": \"write\", \"filename\": \"{}\", \"type\": \"file\", \"position\": {}, \"size\": {}, \"data\": \"{}\" }}",
                     filename, off, size, data);
 //    std::copy(payload.begin(), payload.end(), std::back_inserter(ptr->data.buf));
+    return 0;
 }
 
 auto read(char const * filename,
@@ -389,7 +390,7 @@ auto read(char const * filename,
           tcp::socket * connection = nullptr)
     -> std::size_t
 {
-
+    return 0;
 }
 
 void send_kafka(pack::packet_pointer payload)

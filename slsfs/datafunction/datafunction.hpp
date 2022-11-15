@@ -45,32 +45,34 @@ void send_metadata(std::string const & filename)
     slsfs::log::logstring("_data_ send_metadata end");
 }
 
-auto perform_single_request(
-    storage_conf &datastorage,
-    slsfs::base::json const& input) -> slsfs::base::json
+auto perform_single_request(storage_conf &datastorage,
+                            slsfs::jsre::request_parser<slsfs::base::byte> const& input)
+    -> slsfs::base::buf
 {
-    slsfs::log::logstring("_data_ perform_single_request start: " + input.dump());
+    slsfs::log::logstring("_data_ perform_single_request start: ");
 
     using namespace std::literals;
 //    std::cerr << "processing request: " << input << "\n";
 
-    auto const operation = input["operation"].get<std::string>();
-    auto const filename = input["filename"].get<std::string>();
-    slsfs::base::json single_response;
+    //auto const operation = input["operation"].get<std::string>();
+    //auto const filename = input["filename"].get<std::string>();
+    slsfs::base::buf response;
 
-    switch (slsfs::sswitch::hash(operation))
+    switch (input.operation())
     {
-        using namespace slsfs::sswitch;
-
-    case "write"_:
+    case slsfs::jsre::operation_t::write:
     {
         slsfs::log::logstring("_data_ perform_single_request get data");
-        auto const data = input["data"].get<std::string>();
-        slsfs::base::buf const write_buf = slsfs::base::to_buf(data);
+        //auto const data = input["data"].get<std::string>();
+        //auto const data = input.data();
+        //slsfs::base::buf const write_buf = slsfs::base::to_buf(data);
 
-        slsfs::pack::key_t const uuid = slsfs::uuid::get_uuid(filename);
+        auto const write_buf = input.data();
 
-        int const realpos = input["position"].get<int>();
+        slsfs::pack::key_t const uuid = input.uuid();
+
+        //int const realpos = input["position"].get<int>();
+        int const realpos = input.position();
         int const blockid = realpos / datastorage.blocksize();
         int const offset  = realpos % datastorage.blocksize();
 
@@ -98,57 +100,64 @@ auto perform_single_request(
         // 2PC second phase
         datastorage.foreach(
             [&] (std::shared_ptr<slsfs::storage::interface> host) {
-                host->write_key(uuid, blockid, write_buf, offset, v);
+                slsfs::base::buf b;
+                std::copy_n(write_buf, input.size(), std::back_inserter(b));
+                host->write_key(uuid, blockid, b, offset, v);
             });
 
 //        slsfs::log::logstring("_data_ perform_single_request send_metadata");
-        send_metadata(filename);
+        //send_metadata(filename);
 
-        single_response["response"] = "ok";
+        response = {'A'};
         break;
     }
 
-    case "read"_:
+    case slsfs::jsre::operation_t::read:
     {
-        int const realpos = input["position"].get<int>();
+        auto const write_buf = input.data();
+
+        int const realpos = input.position();
+        //int const realpos = input["position"].get<int>();
+
         int const blockid = realpos / datastorage.blocksize();
         int const offset  = realpos % datastorage.blocksize();
+        slsfs::log::logstring("_data_ perform_single_request reading");
 
-        std::size_t const size = input["size"].get<std::size_t>();
+        std::uint32_t const size = input.size(); // input["size"].get<std::size_t>();
 
-        slsfs::base::buf b;
+        slsfs::log::logstring(fmt::format("_data_ perform_single_request sending: {}, {}, {}, {}", blockid, offset, size, slsfs::pack::ntoh(size)));
         datastorage.foreach(
             [&] (std::shared_ptr<slsfs::storage::interface> host) {
-                b = host->read_key(slsfs::uuid::get_uuid(filename), blockid, offset, size);
+                response = host->read_key(input.uuid(), blockid, offset, size);
             });
 
-        single_response["data"] = slsfs::base::to_string(b);
-        single_response["response"] = "ok";
+        slsfs::log::logstring("_data_ perform_single_request read from ssbd");
+        //single_response["data"] = slsfs::base::to_string(b);
         break;
     }
     }
 
-    if (input.contains("returnchannel"))
-    {
-        std::cerr << "df send " << input["returnchannel"] << " with value " << single_response << "\n";
-        slsfs::log::logstring("_data_ perform_single_request send_kafka");
-
-        slsfs::pack::packet_pointer request = std::make_shared<slsfs::pack::packet>();
-        request->header.type = slsfs::pack::msg_t::put;
-        request->header.key = slsfs::uuid::get_uuid(filename);
-
-        auto const vec = slsfs::base::decode(input["returnchannel"]);
-        assert(vec.size() == request->header.random_salt.size());
-        std::copy(vec.cbegin(), vec.cend(), request->header.random_salt.begin());
-
-        std::string v = single_response.dump();
-        request->data.buf = std::vector<slsfs::pack::unit_t>(v.begin(), v.end());
-
-        slsfs::send_kafka(request);
-    }
+//    if (input.contains("returnchannel"))
+//    {
+//        std::cerr << "df send " << input["returnchannel"] << " with value " << single_response << "\n";
+//        slsfs::log::logstring("_data_ perform_single_request send_kafka");
+//
+//        slsfs::pack::packet_pointer request = std::make_shared<slsfs::pack::packet>();
+//        request->header.type = slsfs::pack::msg_t::put;
+//        request->header.key = slsfs::uuid::get_uuid(filename);
+//
+//        auto const vec = slsfs::base::decode(input["returnchannel"]);
+//        assert(vec.size() == request->header.random_salt.size());
+//        std::copy(vec.cbegin(), vec.cend(), request->header.random_salt.begin());
+//
+//        std::string v = single_response.dump();
+//        request->data.buf = std::vector<slsfs::pack::unit_t>(v.begin(), v.end());
+//
+//        slsfs::send_kafka(request);
+//    }
 
     slsfs::log::logstring("_data_ perform_single_request end");
-    return single_response;
+    return response;
 }
 
 } // namespace slsfsdf

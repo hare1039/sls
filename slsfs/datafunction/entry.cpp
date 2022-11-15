@@ -1,6 +1,6 @@
 
 #include "datafunction.hpp"
-#include "metadatafunction.hpp"
+//#include "metadatafunction.hpp"
 #include "worker.hpp"
 #include "storage-conf.hpp"
 #include "storage-conf-cass.hpp"
@@ -55,38 +55,38 @@ namespace slsfsdf
 
 using boost::asio::ip::tcp;
 
-auto perform(slsfsdf::storage_conf &datastorage, slsfs::base::json const& single_input)
-    -> slsfs::base::json
+auto perform(slsfsdf::storage_conf &datastorage,
+             slsfs::jsre::request_parser<slsfs::base::byte> const& single_input)
+    -> slsfs::base::buf
 {
     slsfs::log::logstring<slsfs::log::level::debug>("perform start");
-    auto const datatype = single_input["type"].get<std::string>();
+
+    //auto const datatype = single_input["type"].get<std::string>();
     SCOPE_DEFER([] { slsfs::log::logstring<slsfs::log::level::debug>("perform end"); });
 
-    switch (slsfs::sswitch::hash(datatype))
+    switch (single_input.type())
     {
-        using namespace slsfs::sswitch;
-
-    case "file"_:
+    case slsfs::jsre::type_t::file:
     {
         return slsfsdf::perform_single_request(datastorage, single_input);
         break;
     }
 
-    case "metadata"_:
+    case slsfs::jsre::type_t::metadata:
     {
-        return metadata::perform_single_request(datastorage, single_input);
+//        return metadata::perform_single_request(datastorage, single_input);
         break;
     }
 
-    case "wakeup"_:
+    case slsfs::jsre::type_t::wakeup:
     {
         break;
     }
 
-    case "storagetest"_:
+    case slsfs::jsre::type_t::storagetest:
     {
-        slsfs::base::buf const write_buf = slsfs::base::to_buf(slsfs::uuid::gen_rand_str(1024));
-        std::string const uuid = slsfs::uuid::get_uuid_str("/storagetest.please.delete");
+        //slsfs::base::buf const write_buf = slsfs::base::to_buf(slsfs::uuid::gen_rand_str(1024));
+        //std::string const uuid = slsfs::uuid::get_uuid_str("/storagetest.please.delete");
 
         slsfs::log::logstring("end read from storage (1000)");
         slsfs::log::push_logs();
@@ -124,20 +124,22 @@ try
             slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request"));
             auto const start = std::chrono::high_resolution_clock::now();
 
-            slsfs::base::json input = slsfs::base::json::parse(pack->data.buf.begin(), pack->data.buf.end());
+            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed"));
+            //slsfs::base::json input = slsfs::base::json::parse(pack->data.buf.begin(), pack->data.buf.end());
 
-            //slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed done"));
-            std::string v;
+            slsfs::jsre::request_parser<slsfs::base::byte> input {pack->data.buf.data()};
+
+            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed done"));
+
             slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
-            try
-            {
-                v = perform(*datastorage, input).dump();
-            }
-            catch (std::exception &e)
-            {
-                v = "{}";
-            }
 
+            slsfs::log::logstring(fmt::format("perform start"));
+
+            slsfs::base::buf v = perform(*datastorage, input);
+
+            slsfs::log::logstring(fmt::format("perform finish"));
+
+            //std::string v = "{}";
             pack->header.type = slsfs::pack::msg_t::worker_response;
             pack->data.buf.resize(v.size());// = std::vector<slsfs::pack::unit_t>(v.size(), '\0');
             std::memcpy(pack->data.buf.data(), v.data(), v.size());
