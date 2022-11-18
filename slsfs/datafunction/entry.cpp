@@ -108,16 +108,15 @@ try
     boost::asio::io_context ioc;
     tcp::resolver resolver(ioc);
 
-    oneapi::tbb::concurrent_hash_map<std::shared_ptr<slsfs::server::proxy_command>, int /* unused */> proxys;
+    slsfs::server::proxy_set proxys;
 
     using json = slsfs::base::json;
     json input;
 
     std::cin >> input;
-    std::cerr << "get request from stdin: " << input << "\n";
-    slsfs::log::logstring("parsed json");
+//    slsfs::log::logstring(fmt::format("get request from stdin: {}", input));
+    auto proxy_command_ptr = std::make_shared<slsfs::server::proxy_command>(ioc, queue_map, perform, proxys);
 
-    auto proxy_command_ptr = std::make_shared<slsfs::server::proxy_command>(ioc, queue_map, perform);
     proxy_command_ptr->start_connect(resolver.resolve(input["host"].get<std::string>(),
                                                       input["port"].get<std::string>()));
 

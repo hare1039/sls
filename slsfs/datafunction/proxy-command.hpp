@@ -31,6 +31,9 @@ concept StorageOperationConcept = requires(Func func)
     -> std::convertible_to<slsfs::base::buf>;
 };
 
+class proxy_command;
+
+using proxy_set = oneapi::tbb::concurrent_hash_map<std::shared_ptr<proxy_command>, int /* unused */>;
 
 class proxy_command : public std::enable_shared_from_this<proxy_command>
 {
@@ -40,6 +43,7 @@ class proxy_command : public std::enable_shared_from_this<proxy_command>
     boost::asio::steady_timer       recv_deadline_;
     queue_map queue_map_;
     boost::signals2::signal<slsfs::base::buf(slsfsdf::storage_conf*, jsre::request_parser<base::byte> const&)> storage_perform_;
+    proxy_set proxy_set_;
 
     void timer_reset()
     {
@@ -67,12 +71,14 @@ public:
     template<StorageOperationConcept StorageOperation>
     proxy_command(boost::asio::io_context& io_context,
                   queue_map& qm,
-                  StorageOperation op)
+                  StorageOperation op,
+                  proxy_set& ps)
         : io_context_{io_context},
           socket_{io_context_},
           write_io_strand_{io_context_},
           recv_deadline_{io_context_},
-          queue_map_{qm} {
+          queue_map_{qm},
+          proxy_set_{ps} {
         storage_perform_.connect(op);
     }
 
@@ -135,7 +141,13 @@ public:
                 if (not ec)
                 {
                     pack->data.parse(length, read_buf->data());
-                    self->start_job(pack);
+
+                    if (pack->header.type == slsfs::pack::msg_t::proxyjoin)
+                    {
+                        slsfs::log::logstring("add connection");
+                    }
+                    else
+                        self->start_job(pack);
 
                     slsfs::pack::packet_pointer ok = std::make_shared<slsfs::pack::packet>();
                     ok->header = pack->header;
@@ -209,6 +221,6 @@ public:
     }
 };
 
-} // namespace server::slsfs
+} // namespace slsfs::server
 
 #endif // PROXY_COMMAND_HPP__
