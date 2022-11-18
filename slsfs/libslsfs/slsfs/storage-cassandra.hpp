@@ -118,7 +118,7 @@ public:
 
     auto read_key(pack::key_t const& namepack, std::size_t partition, std::size_t location, std::size_t size) -> base::buf override
     {
-        std::string const name = uuid::to_string(namepack);
+        std::string const name = uuid::encode_base64(namepack);
         char const* query = "SELECT value FROM sp3.tableA3 WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);
@@ -158,7 +158,7 @@ public:
 
     void write_key(pack::key_t const& namepack, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override
     {
-        std::string const name = uuid::to_string(namepack);
+        std::string const name = uuid::encode_base64(namepack);
         char const* query = "INSERT INTO sp3.tableA3 (key, value) VALUES (?, ?);";
 
         CassStatement* statement = cass_statement_new(query, 2);
@@ -174,7 +174,7 @@ public:
 
     void append_list_key(pack::key_t const& namepack, base::buf const& buffer) override
     {
-        std::string const name = uuid::to_string(namepack);
+        std::string const name = uuid::encode_base64(namepack);
         //std::string const name = pack::to_string(namepack);
         // CREATE TABLE functionkv.tableC (key text, value list<text>, PRIMARY KEY (key));
         char const* query = "UPDATE sp3.tableA3 SET value = value + ? WHERE key=?;";
@@ -196,7 +196,7 @@ public:
 
     void merge_list_key(pack::key_t const& namepack, std::function<void(std::vector<base::buf> const&)> reduce) override
     {
-        std::string const name = uuid::to_string(namepack);
+        std::string const name = uuid::encode_base64(namepack);
         char const* query = "SELECT value FROM sp3.tableA3 WHERE key=?";
 
         CassStatement* statement = cass_statement_new(query, 1);

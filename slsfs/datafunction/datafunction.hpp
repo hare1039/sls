@@ -114,7 +114,7 @@ auto perform_single_request(storage_conf &datastorage,
 
     case slsfs::jsre::operation_t::read:
     {
-        auto const write_buf = input.data();
+        //auto const write_buf = input.data();
 
         int const realpos = input.position();
         //int const realpos = input["position"].get<int>();

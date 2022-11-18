@@ -1,12 +1,17 @@
 
+
 #include "datafunction.hpp"
 //#include "metadatafunction.hpp"
 #include "worker.hpp"
 #include "storage-conf.hpp"
 #include "storage-conf-cass.hpp"
 #include "storage-conf-ssbd.hpp"
+#include "proxy-command.hpp"
 
 #include <slsfs.hpp>
+
+#include <oneapi/tbb/concurrent_hash_map.h>
+#include <oneapi/tbb/concurrent_queue.h>
 
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -55,7 +60,7 @@ namespace slsfsdf
 
 using boost::asio::ip::tcp;
 
-auto perform(slsfsdf::storage_conf &datastorage,
+auto perform(slsfsdf::storage_conf *datastorage,
              slsfs::jsre::request_parser<slsfs::base::byte> const& single_input)
     -> slsfs::base::buf
 {
@@ -68,7 +73,7 @@ auto perform(slsfsdf::storage_conf &datastorage,
     {
     case slsfs::jsre::type_t::file:
     {
-        return slsfsdf::perform_single_request(datastorage, single_input);
+        return slsfsdf::perform_single_request(*datastorage, single_input);
         break;
     }
 
@@ -99,87 +104,22 @@ auto perform(slsfsdf::storage_conf &datastorage,
 int do_datafunction(std::ostream &ow_out)
 try
 {
-//    auto start = std::chrono::high_resolution_clock::now();
-//    auto end = std::chrono::high_resolution_clock::now();
-//    auto pass = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-//    ow_out << "{\"hello\": \"world\"}" << std::endl; // enter and flush
-    //std::cout << "{\"hello\": \"world\", \"time\": " << pass << "}\n";
-//    return 0;
-
+    slsfs::server::queue_map queue_map;
     boost::asio::io_context ioc;
-    tcp::socket socket(ioc);
     tcp::resolver resolver(ioc);
 
-    //slsfsdf::storage_conf_ssbd datastorage(ioc);
-
-    auto worker_ptr = std::make_shared<worker>(
-        ioc, socket,
-        [&ow_out] (slsfs::pack::packet_pointer pack) {
-            pack->header.type = slsfs::pack::msg_t::worker_response;
-            //std::string v2 = "{}";
-            //pack->data.buf.resize(v2.size());
-            //std::memcpy(pack->data.buf.data(), v2.data(), v2.size());
-            //return;
-
-            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request"));
-            auto const start = std::chrono::high_resolution_clock::now();
-
-            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed"));
-            //slsfs::base::json input = slsfs::base::json::parse(pack->data.buf.begin(), pack->data.buf.end());
-
-            slsfs::jsre::request_parser<slsfs::base::byte> input {pack->data.buf.data()};
-
-            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("start request: parsed done"));
-
-            slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
-
-            slsfs::log::logstring(fmt::format("perform start"));
-
-            slsfs::base::buf v = perform(*datastorage, input);
-
-            slsfs::log::logstring(fmt::format("perform finish"));
-
-            //std::string v = "{}";
-            pack->header.type = slsfs::pack::msg_t::worker_response;
-            pack->data.buf.resize(v.size());// = std::vector<slsfs::pack::unit_t>(v.size(), '\0');
-            std::memcpy(pack->data.buf.data(), v.data(), v.size());
-            auto const end = std::chrono::high_resolution_clock::now();
-
-            auto relativetime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
-            slsfs::log::logstring<slsfs::log::level::info>(fmt::format("req finish in: {}", relativetime));
-            //pack->data.buf = std::vector<slsfs::pack::unit_t>{65, 66, 67};
-        });
-
-    boost::asio::async_connect(
-        socket,
-        //resolver.resolve("ow-ctrl", "12000"),
-        resolver.resolve("10.0.0.240", "12000"),
-        [&socket, worker_ptr] (boost::system::error_code const & ec, tcp::endpoint const& endpoint) {
-            socket.set_option(tcp::no_delay(true));
-            if (ec)
-            {
-                std::stringstream ss;
-                ss << " connect to proxy error: " << ec.message();
-                slsfs::log::logstring(ss.str());
-            }
-            else
-            {
-                slsfs::pack::packet_pointer ptr = std::make_shared<slsfs::pack::packet>();
-                ptr->header.type = slsfs::pack::msg_t::worker_reg;
-                ptr->header.gen();
-
-                worker_ptr->start_write(
-                    ptr,
-                    [worker_ptr, ptr] (boost::system::error_code ec, std::size_t length) {
-                        worker_ptr->start_listen_commands();
-                    });
-            }
-
-        });
+    oneapi::tbb::concurrent_hash_map<std::shared_ptr<slsfs::server::proxy_command>, int /* unused */> proxys;
 
     using json = slsfs::base::json;
-    using namespace std::literals;
     json input;
+
+    std::cin >> input;
+    std::cerr << "get request from stdin: " << input << "\n";
+    slsfs::log::logstring("parsed json");
+
+    auto proxy_command_ptr = std::make_shared<slsfs::server::proxy_command>(ioc, queue_map, perform);
+    proxy_command_ptr->start_connect(resolver.resolve(input["host"].get<std::string>(),
+                                                      input["port"].get<std::string>()));
 
     boost::asio::deadline_timer t(ioc, boost::posix_time::seconds(10));
     t.async_wait([](boost::system::error_code const&) {});
@@ -187,7 +127,7 @@ try
     std::vector<std::thread> v;
     unsigned int const worker = std::min<unsigned int>(4, std::thread::hardware_concurrency());
     v.reserve(worker);
-    for(int i = 0; i < worker; i++)
+    for(unsigned int i = 0; i < worker; i++)
         v.emplace_back(
             [&ioc] {
                 slsfsdf::storage_conf * datastorage = slsfsdf::get_thread_local_datastorage().get();
@@ -204,10 +144,6 @@ try
                 slsfs::log::logstring("starting ioc");
                 ioc.run();
             });
-
-    std::cin >> input;
-    std::cerr << "get request from stdin: " << input << "\n";
-    slsfs::log::logstring("parsed json");
 
     json output;
     output["original-request"] = input;

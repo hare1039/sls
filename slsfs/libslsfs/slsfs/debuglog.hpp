@@ -88,8 +88,8 @@ void logstring(std::string const & msg)
 //        std::stringstream ss;
 //        ss << std::this_thread::get_id();
         std::string const finalmsg = fmt::format("[{0:12d} {1}] {2}", relativetime, (*info.signature), msg);
-        if (global_info::to_remote)
-            httpdo::logget("http://zion01:2015", finalmsg);
+//        if (global_info::to_remote)
+//            httpdo::logget("http://zion01:2015", finalmsg);
 
         //global_msg_vec().push_back(finalmsg);
 

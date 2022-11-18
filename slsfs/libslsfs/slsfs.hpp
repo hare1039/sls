@@ -113,7 +113,7 @@ int create(char const * filename)
 {
     slsfs::log::logstring("create start");
 
-    std::string const uuid = uuid::get_uuid_str(filename);
+    std::string const uuid = filename;// uuid::gen_uuid(filename);
 
     using namespace std::literals;
     base::json triggerdata;

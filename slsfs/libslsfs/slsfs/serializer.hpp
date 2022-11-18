@@ -4,8 +4,6 @@
 
 #include <arpa/inet.h>
 
-//#include <boost/functional/hash.hpp>
-
 #include <ios>
 #include <iostream>
 #include <vector>
@@ -19,27 +17,27 @@
 namespace slsfs::pack
 {
 
-namespace
+namespace hash
 {
 
 template <typename Integer>
-void hash_combine(std::size_t& seed, Integer value)
+void combine(std::size_t& seed, Integer value)
 {
     seed ^= value + 0x9e3779b9 + (seed<<6) + (seed>>2);
 }
 
 template <typename It>
-void hash_range(std::size_t& seed, It first, It last)
+void range(std::size_t& seed, It first, It last)
 {
     for(; first != last; ++first)
-        hash_combine(seed, *first);
+        combine(seed, *first);
 }
 
 } // namespace
 
 
-using unit_t = unsigned char;
-static_assert(sizeof(unit_t) == 8/8);
+using unit_t = std::uint8_t;
+//using unit_t = char;
 
 // key = [32] byte main key // sha256 bit
 using key_t = std::array<unit_t, 256 / 8 / sizeof(unit_t)>;
@@ -48,12 +46,15 @@ enum class msg_t: unit_t
     err = 0,
     put = 1,
     get = 2,
-    ack = 4,
+    ack = 3,
+    proxyjoin = 4,
+
     worker_reg = 8,
     worker_dereg = 9,
     worker_push_request = 10,
     worker_response = 11,
-    trigger = 16,
+
+    trigger = 15,
 };
 
 template<typename Integer>
@@ -177,7 +178,7 @@ struct packet_header
         return pos + sizeof(datasize_copy);
     }
 
-    bool is_trigger() { return random_salt.back() == 0; } // if buf[-1] == 0 => is a trigger
+    bool is_trigger() { return random_salt.back() == 0; } // change
 };
 
 struct packet_header_key_hash
@@ -185,8 +186,8 @@ struct packet_header_key_hash
     auto operator() (packet_header const& k) const -> std::size_t
     {
         std::size_t seed = 0x1b873593;
-        hash_range(seed, k.key.begin(), k.key.end());
-        hash_range(seed, k.random_salt.begin(), k.random_salt.end());
+        hash::range(seed, k.key.begin(), k.key.end());
+        hash::range(seed, k.random_salt.begin(), k.random_salt.end());
         return seed;
     }
 };
@@ -197,6 +198,21 @@ struct packet_header_key_compare
     {
         return (std::tie(key1.key, key1.random_salt) ==
                 std::tie(key2.key, key2.random_salt));
+    }
+};
+
+struct packet_header_key_hash_compare
+{
+    static
+    auto hash (packet_header const& key) -> std::size_t
+    {
+        return packet_header_key_hash{}(key);
+    }
+
+    static
+    bool equal (packet_header const& key1, packet_header const& key2)
+    {
+        return packet_header_key_compare{}(key1, key2);
     }
 };
 

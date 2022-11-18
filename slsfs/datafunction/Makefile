@@ -1,20 +1,23 @@
+.PHONY: exec-debug exec function function-debug
 
-#.PHONY function function-debug exec-debug exec
+function-debug: *.cpp *.hpp exec-debug
+	./deploy.sh
 
-function-debug: *.cpp *.hpp
-	DOCKER_BUILDKIT=1 CPPBUILDARGS="-DAS_ACTIONLOOP -ggdb" ./push.sh && ./deploy.sh
-
-function: *.cpp *.hpp
-	DOCKER_BUILDKIT=1 CPPBUILDARGS="-DAS_ACTIONLOOP -O3 -DNDEBUG" ./push.sh && ./deploy.sh
+function: *.cpp *.hpp exec
+	./deploy.sh
 
 exec-debug: *.cpp *.hpp
-	DOCKER_BUILDKIT=1 CPPBUILDARGS="-ggdb" ./push.sh && chmod +x exec
+	DOCKER_BUILDKIT=1 docker build -t hare1039/slsfs-datafunction:nightly \
+                                   --build-arg debug=true \
+                                   -f Dockerfile .. && \
+    docker run --rm hare1039/slsfs-datafunction:nightly cat /action/exec > exec && \
+    chmod +x exec
 
 exec: *.cpp *.hpp
-	DOCKER_BUILDKIT=1 CPPBUILDARGS="-O3 -DNDEBUG" ./push.sh && chmod +x exec
+	DOCKER_BUILDKIT=1 docker build -t hare1039/slsfs-datafunction:nightly \
+                                   -f Dockerfile .. && \
+    docker run --rm hare1039/slsfs-datafunction:nightly cat /action/exec > exec && \
+    chmod +x exec
 
 deploy:
 	wsk -i action update hare1039/slsfs-actionproxy --docker 'openwhisk/actionloop-base:nightly'
-
-main.zip:
-	docker run -i --rm 'action-golang-v1.16:nightly' -compile main <$(SRC) >$(ZIP)

@@ -48,7 +48,8 @@ void put(char const* url, char const * data, std::size_t datasize)
     curl_easy_setopt(hnd, CURLOPT_FTP_SKIP_PASV_IP, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
 
-    CURLcode ret = curl_easy_perform(hnd);
+    // CURLcode ret =
+    curl_easy_perform(hnd);
 }
 
 void put(std::string const& url, std::string const& data)
@@ -84,7 +85,7 @@ void post(char const* url, char const * data, std::size_t datasize)
     curl_easy_setopt(hnd, CURLOPT_FTP_SKIP_PASV_IP, 1L);
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
 
-    CURLcode ret = curl_easy_perform(hnd);
+    curl_easy_perform(hnd);
 }
 
 void post(std::string const& url, std::string const& data)
@@ -92,7 +93,7 @@ void post(std::string const& url, std::string const& data)
     post(url.c_str(), data.c_str(), data.size());
 }
 
-void logget(char const* url, char const * data, std::size_t datasize)
+void logget(char const* url, char const * data, std::size_t /*datasize*/)
 {
     using namespace std::literals;
     httpinit();
@@ -109,7 +110,7 @@ void logget(char const* url, char const * data, std::size_t datasize)
     curl_easy_setopt(hnd, CURLOPT_CUSTOMREQUEST, "GET");
     curl_easy_setopt(hnd, CURLOPT_TCP_KEEPALIVE, 1L);
 
-    CURLcode ret = curl_easy_perform(hnd);
+    curl_easy_perform(hnd);
 }
 
 void logget(std::string const& url, std::string const& data)
