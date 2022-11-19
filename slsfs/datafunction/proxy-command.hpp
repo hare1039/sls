@@ -41,18 +41,21 @@ class proxy_command : public std::enable_shared_from_this<proxy_command>
     boost::asio::ip::tcp::socket    socket_;
     boost::asio::io_context::strand write_io_strand_;
     boost::asio::steady_timer       recv_deadline_;
-    queue_map queue_map_;
+    queue_map& queue_map_;
     boost::signals2::signal<slsfs::base::buf(slsfsdf::storage_conf*, jsre::request_parser<base::byte> const&)> storage_perform_;
-    proxy_set proxy_set_;
+    proxy_set& proxy_set_;
 
     void timer_reset()
     {
         using namespace std::chrono_literals;
+        slsfs::log::logstring("timer_reset");
+        recv_deadline_.expires_from_now(1s);
         recv_deadline_.async_wait(
             [self=this->shared_from_this()] (boost::system::error_code ec) {
+                slsfs::log::logstring(fmt::format("timer_reset: get code: {}", ec.message()));
                 if (not ec)
                 {
-                    log::logstring<log::level::info>("read header timeout");
+                    log::logstring<log::level::info>("timer_reset: read header timeout");
 
                     pack::packet_pointer pack = std::make_shared<pack::packet>();
                     pack->header.type = pack::msg_t::worker_dereg;
@@ -60,11 +63,12 @@ class proxy_command : public std::enable_shared_from_this<proxy_command>
                         pack,
                         [self=self->shared_from_this()] (boost::system::error_code ec, std::size_t length) {
                             self->socket_.shutdown(tcp::socket::shutdown_receive, ec);
-                            log::logstring("send shutdown");
+                            log::logstring("timer_reset: send shutdown");
                         });
                 }
+                else
+                    slsfs::log::logstring("timer_reset: closed");
         });
-        recv_deadline_.expires_from_now(1s);
     }
 
 public:
@@ -93,6 +97,7 @@ public:
                     slsfs::log::logstring(fmt::format("connect to proxy error: {}", ec.message()));
                 else
                 {
+                    slsfs::log::logstring("connected. start write and listen");
                     slsfs::pack::packet_pointer ptr = std::make_shared<slsfs::pack::packet>();
                     ptr->header.type = slsfs::pack::msg_t::worker_reg;
                     ptr->header.gen();
@@ -112,22 +117,19 @@ public:
         boost::asio::async_read(
             socket_, boost::asio::buffer(readbuf->data(), readbuf->size()),
             [self=this->shared_from_this(), readbuf] (boost::system::error_code ec, std::size_t /*length*/) {
-                self->recv_deadline_.cancel();
                 slsfs::log::logstring("start_listen_commands get cmd");
 
                 if (not ec)
                 {
+                    slsfs::log::logstring("start_listen_commands cancel timer");
+                    self->recv_deadline_.cancel();
                     slsfs::log::logstring<slsfs::log::level::debug>("get cmd");
                     slsfs::pack::packet_pointer pack = std::make_shared<slsfs::pack::packet>();
                     pack->header.parse(readbuf->data());
                     self->start_listen_commands_body(pack);
                 }
                 else
-                {
-                    std::stringstream ss;
-                    ss << ec.message();
-                    slsfs::log::logstring(std::string("error listen command ") + ss.str());
-                }
+                    slsfs::log::logstring(fmt::format("error listen command {}", ec.message()));
             });
     }
 
@@ -161,14 +163,15 @@ public:
             });
     }
 
-    void start_write(slsfs::pack::packet_pointer pack)
-    {
+    void start_write(slsfs::pack::packet_pointer pack) {
         start_write(pack, [](boost::system::error_code, std::size_t) {});
     }
 
     template<typename Func>
     void start_write(slsfs::pack::packet_pointer pack, Func next)
     {
+        slsfs::log::logstring("start write");
+
         auto buf_pointer = pack->serialize();
         boost::asio::async_write(
             socket_,
@@ -199,9 +202,6 @@ public:
             boost::asio::bind_executor(
                 *ptr,
                 [self=this->shared_from_this(), pack] {
-                    //self->start_write(pack);
-                    pack->header.type = slsfs::pack::msg_t::worker_response;
-
                     auto const start = std::chrono::high_resolution_clock::now();
 
                     slsfs::jsre::request_parser<slsfs::base::byte> input {pack->data.buf.data()};
@@ -215,6 +215,8 @@ public:
 
                     auto relativetime = std::chrono::duration_cast<std::chrono::nanoseconds>(end - start).count();
                     slsfs::log::logstring<slsfs::log::level::info>(fmt::format("req finish in: {}", relativetime));
+
+                    self->start_write(pack);
                 }
             )
         );

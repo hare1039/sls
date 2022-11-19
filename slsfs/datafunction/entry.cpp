@@ -114,14 +114,15 @@ try
     json input;
 
     std::cin >> input;
+    input = input["value"];
 //    slsfs::log::logstring(fmt::format("get request from stdin: {}", input));
     auto proxy_command_ptr = std::make_shared<slsfs::server::proxy_command>(ioc, queue_map, perform, proxys);
 
     proxy_command_ptr->start_connect(resolver.resolve(input["host"].get<std::string>(),
                                                       input["port"].get<std::string>()));
 
-    boost::asio::deadline_timer t(ioc, boost::posix_time::seconds(10));
-    t.async_wait([](boost::system::error_code const&) {});
+//    boost::asio::deadline_timer t(ioc, boost::posix_time::seconds(10));
+//    t.async_wait([](boost::system::error_code const&) {});
 
     std::vector<std::thread> v;
     unsigned int const worker = std::min<unsigned int>(4, std::thread::hardware_concurrency());
@@ -207,7 +208,7 @@ int main(int argc, char *argv[])
     std::ostream ow_out {&fpstream};
     while (true)
     {
-        std::cerr << "starting as action loop" << std::endl;
+        slsfs::log::logstring("starting as action loop");
         //records.push_back(record([&](){ slsfsdf::do_datafunction(ow_out); }));
         int error = slsfsdf::do_datafunction(ow_out);
         if (error != 0)
