@@ -117,6 +117,7 @@ try
     input = input["value"];
 //    slsfs::log::logstring(fmt::format("get request from stdin: {}", input));
     auto proxy_command_ptr = std::make_shared<slsfs::server::proxy_command>(ioc, queue_map, perform, proxys);
+    proxys.emplace(proxy_command_ptr, 0);
 
     proxy_command_ptr->start_connect(resolver.resolve(input["host"].get<std::string>(),
                                                       input["port"].get<std::string>()));

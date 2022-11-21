@@ -42,14 +42,15 @@ class proxy_command : public std::enable_shared_from_this<proxy_command>
     boost::asio::io_context::strand write_io_strand_;
     boost::asio::steady_timer       recv_deadline_;
     queue_map& queue_map_;
-    boost::signals2::signal<slsfs::base::buf(slsfsdf::storage_conf*, jsre::request_parser<base::byte> const&)> storage_perform_;
+//    boost::signals2::signal<slsfs::base::buf(slsfsdf::storage_conf*, jsre::request_parser<base::byte> const&)> storage_perform_;
+    std::function<slsfs::base::buf(slsfsdf::storage_conf*, jsre::request_parser<base::byte> const&)> storage_perform_;
     proxy_set& proxy_set_;
 
     void timer_reset()
     {
         using namespace std::chrono_literals;
         slsfs::log::logstring("timer_reset");
-        recv_deadline_.expires_from_now(1s);
+        recv_deadline_.expires_from_now(60s);
         recv_deadline_.async_wait(
             [self=this->shared_from_this()] (boost::system::error_code ec) {
                 slsfs::log::logstring(fmt::format("timer_reset: get code: {}", ec.message()));
@@ -82,11 +83,11 @@ public:
           write_io_strand_{io_context_},
           recv_deadline_{io_context_},
           queue_map_{qm},
-          proxy_set_{ps} {
-        storage_perform_.connect(op);
-    }
+          storage_perform_{op},
+          proxy_set_{ps} {}
 
-    void start_connect(boost::asio::ip::tcp::resolver::results_type endpoint)
+    template<typename Endpoint>
+    void start_connect(Endpoint endpoint)
     {
         boost::asio::async_connect(
             socket_,
@@ -146,7 +147,31 @@ public:
 
                     if (pack->header.type == slsfs::pack::msg_t::proxyjoin)
                     {
-                        slsfs::log::logstring("add connection");
+                        slsfs::log::logstring("switch proxy master");
+                        std::uint32_t addr;
+                        std::memcpy(&addr, pack->data.buf.data(), sizeof(addr));
+                        addr = pack::ntoh(addr);
+                        boost::asio::ip::address_v4 new_host{addr};
+                        boost::asio::ip::port_type  new_port;
+                        std::memcpy(&new_port, pack->data.buf.data() + 4, sizeof(new_port));
+                        new_port = pack::ntoh(new_port);
+
+                        boost::asio::ip::tcp::endpoint ep{new_host, new_port};
+                        {
+                            std::stringstream ss;
+                            ss << ep;
+                            slsfs::log::logstring(fmt::format("try connect to {}", ss.str()));
+                        }
+
+                        std::list<boost::asio::ip::tcp::endpoint> ep_list {ep};
+                        auto proxy_command_ptr = std::make_shared<slsfs::server::proxy_command>(
+                            self->io_context_,
+                            self->queue_map_,
+                            self->storage_perform_,
+                            self->proxy_set_);
+
+                        proxy_command_ptr->start_connect(ep_list);
+                        self->proxy_set_.emplace(proxy_command_ptr, 0);
                     }
                     else
                         self->start_job(pack);
@@ -206,7 +231,7 @@ public:
 
                     slsfs::jsre::request_parser<slsfs::base::byte> input {pack->data.buf.data()};
                     slsfsdf::storage_conf* datastorage = slsfsdf::get_thread_local_datastorage().get();
-                    slsfs::base::buf v = self->storage_perform_(datastorage, input).get_value_or({});
+                    slsfs::base::buf v = self->storage_perform_(datastorage, input);
 
                     pack->header.type = slsfs::pack::msg_t::worker_response;
                     pack->data.buf.resize(v.size());// = std::vector<slsfs::pack::unit_t>(v.size(), '\0');
