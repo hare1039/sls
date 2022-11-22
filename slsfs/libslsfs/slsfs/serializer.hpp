@@ -54,7 +54,8 @@ enum class msg_t: unit_t
     worker_push_request = 10,
     worker_response = 11,
 
-    trigger = 15,
+    trigger = 14,
+    trigger_reject = 15,
 };
 
 template<typename Integer>
@@ -129,6 +130,18 @@ struct packet_header
     {
         gen_random_salt();
         gen_sequence();
+    }
+
+    bool empty()
+    {
+        for (unit_t c : key)
+            if (c != 0)
+                return false;
+
+        for (unit_t c : sequence)
+            if (c != 0)
+                return false;
+        return true;
     }
 
     void parse(unit_t *pos)
@@ -264,6 +277,8 @@ struct packet
 
         return r;
     }
+
+    bool empty() { return header.empty(); }
 };
 
 using packet_pointer = std::shared_ptr<packet>;
