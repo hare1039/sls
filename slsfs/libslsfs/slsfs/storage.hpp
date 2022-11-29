@@ -14,17 +14,23 @@ public:
     virtual ~interface() {}
     virtual void connect() {};
 
-    // block interface [int] -> buf
-//    virtual auto read_block(std::uint32_t const offset) -> base::buf { return {}; };
-//    virtual void write_block(std::uint32_t const offset, base::buf const& buffer) {};
+    //data operations, key interface   [str] -> buf
 
-    // key interface   [str] -> buf
+
     virtual auto read_key (pack::key_t const& name, std::size_t partition, std::size_t location, std::size_t size) -> base::buf { return {}; };
+
+    // update operation
     virtual void write_key(pack::key_t const& name, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) {};
+
+
     virtual bool check_version_ok(pack::key_t const& name, std::size_t partition, std::uint32_t& version) { return true; };
 
-    // list interface  [str] -> buf
+    // Metatdata operations, list interface  [str] -> buf
+
+    // Create file operation
     virtual void append_list_key(pack::key_t const& name, base::buf const& buffer) {};
+
+    // 
     virtual void merge_list_key (pack::key_t const& name, std::function<void(std::vector<base::buf> const&)> reduce) {};
     virtual auto get_list_key   (pack::key_t const& name) -> base::buf { return {}; };
 };

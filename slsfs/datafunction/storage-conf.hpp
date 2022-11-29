@@ -9,6 +9,7 @@
 namespace slsfsdf
 {
 
+// Used to configurate the backend storage configuration.
 class storage_conf
 {
 protected:
@@ -17,6 +18,7 @@ public:
     virtual ~storage_conf() {}
     virtual void init() = 0;
     virtual int  blocksize() = 0;
+    virtual void replication() {}
 
     void connect()
     {
@@ -24,12 +26,7 @@ public:
             host->connect();
     }
 
-    template<typename DoFunction>
-    void foreach(DoFunction f)
-    {
-        for (std::shared_ptr<slsfs::storage::interface> host : hostlist_)
-            std::invoke(f, host);
-    }
+    virtual auto perform(slsfs::jsre::request_parser<slsfs::base::byte> const& input) -> slsfs::base::buf = 0;
 };
 
 // must fix in the future

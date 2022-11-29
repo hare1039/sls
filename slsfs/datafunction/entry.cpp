@@ -6,6 +6,7 @@
 #include "storage-conf.hpp"
 #include "storage-conf-cass.hpp"
 #include "storage-conf-ssbd.hpp"
+#include "storage-conf-ssbd-stripe.hpp"
 #include "proxy-command.hpp"
 
 #include <slsfs.hpp>

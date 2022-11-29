@@ -6,3 +6,4 @@
 **/record.sh_*-logs
 /experiment/workspace
 exec
+test_swift

@@ -19,6 +19,7 @@ enum class operation_t : std::int8_t
 {
     write,
     read,
+    create,
 };
 
 using key_t = pack::key_t;
@@ -38,6 +39,8 @@ struct request
     }
 };
 
+
+// requires refdata exist, so we need add smart pointer here
 template<typename CharType> requires (sizeof (CharType) == 8/8)
 struct request_parser
 {
