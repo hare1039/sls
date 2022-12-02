@@ -3,7 +3,6 @@
 #define SLSFS_HPP__
 
 #include "slsfs/uuid-gen.hpp"
-#include "slsfs/json.hpp"
 #include "slsfs/basetypes.hpp"
 #include "slsfs/http-verb.hpp"
 #include "slsfs/storage-cassandra.hpp"

@@ -21,6 +21,7 @@ exec: *.cpp *.hpp
 
 test_swift: *.cpp *.hpp
 	DOCKER_BUILDKIT=1 docker build -t hare1039/slsfs-datafunction:nightly \
+                                   --build-arg debug=true \
                                    -f Dockerfile .. && \
     docker run --rm hare1039/slsfs-datafunction:nightly cat /action/test_swift > test_swift && \
     chmod +x test_swift

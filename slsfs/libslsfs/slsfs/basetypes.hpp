@@ -6,7 +6,7 @@
 #include <vector>
 #include <cstdint>
 #include <sstream>
-#include "json.hpp"
+#include "nlohmann/json.hpp"
 #include "cppcodec/base64_url.hpp"
 
 namespace slsfs::base

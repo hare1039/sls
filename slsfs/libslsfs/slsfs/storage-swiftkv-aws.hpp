@@ -9,7 +9,9 @@
 #include "scope-exit.hpp"
 
 #include <aws/core/Aws.h>
+#include <aws/core/config/ConfigAndCredentialsCacheManager.h>
 #include <aws/core/auth/AWSCredentials.h>
+#include <aws/core/auth/AWSCredentialsProvider.h>
 #include <aws/s3/S3Client.h>
 #include <aws/s3/model/ListObjectsRequest.h>
 #include <aws/s3/model/Object.h>
@@ -29,27 +31,29 @@ class swiftkv : public interface
 private:
     Aws::Client::ClientConfiguration client_config_;
     Aws::S3::S3Client s3_client_;
-    Aws::SDKOptions options_;
     Aws::String kvstore_ = nullptr;
 
 public:
     swiftkv(string kvstore_name)
     {
         // Create S3 base URL, credentials, and client
-        Aws::InitAPI(options_);
 
         client_config_.endpointOverride = "https://stack.nerc.mghpcc.org:13808";
-        Aws::Auth::AWSCredentials cred{"994dde2d21f24b498455a14611d9dfbd",
-                                       "3b3817d6435f4590b252bc99ba95c8d4"};
-        s3_client_ = Aws::S3::S3Client(cred,
+        client_config_.scheme = Aws::Http::Scheme::HTTP;
+        
+        Aws::Auth::AWSCredentials credentials;
+        credentials.SetAWSAccessKeyId(Aws::String("994dde2d21f24b498455a14611d9dfbd"));
+        credentials.SetAWSSecretKey(Aws::String("3b3817d6435f4590b252bc99ba95c8d4"));
+
+        s3_client_ = Aws::S3::S3Client(credentials,
                                        Aws::MakeShared<Aws::S3::Endpoint::S3EndpointProvider>("DF swift allocationTag"),
-                                       client_config_); // 2th constructure
+                                       client_config_);
+                                       
         kvstore_ = Aws::String(kvstore_name.c_str(), kvstore_name.size());;
     }
 
     ~swiftkv()
     {
-        Aws::ShutdownAPI(options_);
     }
 
     // key interface   [str] -> buf
@@ -78,7 +82,7 @@ public:
             std::cerr << "Error: ListObjects: " <<
                 outcome.GetError().GetMessage() << std::endl;
         }
-        else {
+        else {          
             Aws::Vector<Aws::S3::Model::Object> objects =
                 outcome.GetResult().GetContents();
 
