@@ -9,12 +9,17 @@
 #include "scope-exit.hpp"
 #include "uuid-gen.hpp"
 
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
+
 #include <miniocpp/client.h>
+// #include "/home/ubuntu/dep/minio-cpp/include/client.h"
 
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
+#include <future>
 
 
 namespace slsfs::storage
@@ -28,7 +33,7 @@ private:
     minio::s3::BaseUrl base_url = minio::s3::BaseUrl("stack.nerc.mghpcc.org:13808");
     minio::creds::StaticProvider provider = minio::creds::StaticProvider("994dde2d21f24b498455a14611d9dfbd", "3b3817d6435f4590b252bc99ba95c8d4");
     minio::s3::Client client = minio::s3::Client(base_url, &provider);
-    string kv_store = ""; 
+    string kv_store = "";
 
 
 public:
@@ -68,54 +73,34 @@ public:
         args.bucket = kv_store;
         args.object = uuid::encode_base64(name);
 
-        args.datafunc = [](minio::http::DataFunctionArgs args) -> bool {
-                            std::cout << args.datachunk;
+        promise<string> ret_val;
+
+        args.datafunc = [&](minio::http::DataFunctionArgs args) -> bool {
+                            ret_val.set_value(args.datachunk);
                             return true;
                         };
 
-        minio::s3::GetObjectResponse resp = client.GetObject(args);
+        minio::s3::GetObjectResponse resp = client.GetObject(args); 
 
         if (resp) {
-            std::cout << std::endl
-                    << "data of my-object is received successfully" << std::endl;
+            return base::to_buf(ret_val.get_future().get());
 
         } else {
-            std::cout << "unable to get object; " << resp.Error().String() << std::endl;
+            return base::to_buf("KEYNOTFOUND");   
         }
-
-        return {};
     }
 
     // TODO: Should this return a response, What if this fails?
-    void write_key(pack::key_t const& name, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override 
+    void write_key(pack::key_t const& name, std::size_t partition, base::buf const& buffer, std::size_t location, std::uint32_t version) override
     {
-        string temp_filename = "temp_write" + uuid::encode_base64(name);
+        std::stringstream stream;
+        std::copy(buffer.begin(), buffer.end(), std::ostream_iterator<std::uint8_t>(stream));
 
-        ofstream out_file(temp_filename);
-
-        out_file.write((const char*) &buffer[0], buffer.size());
-        out_file.close();
-
-        ifstream file(temp_filename);
-
-        auto size = std::filesystem::file_size(temp_filename);
-
-        minio::s3::PutObjectArgs args(file, size, 0);
+        minio::s3::PutObjectArgs args(stream, buffer.size(), 0);
         args.bucket = kv_store;
         args.object = uuid::encode_base64(name);
 
         minio::s3::PutObjectResponse resp = client.PutObject(args);
-
-        // Handle response.
-        if (resp) {
-            std::cout << "my-object is successfully created" << std::endl;
-        } else {
-            std::cout << "unable to do put object; " << resp.Error().String()
-                    << std::endl;
-        }
-
-        remove(temp_filename.c_str());
-
     }
 
     bool check_version_ok(pack::key_t const & name, std::size_t partition, std::uint32_t& version) override {return false;}
